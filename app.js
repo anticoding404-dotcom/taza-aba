@@ -8,6 +8,139 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 
+  // =========================================================================
+  // ДИНАМИЧЕСКИЙ ФОТО-ФОН ОКРУЖЕНИЯ (БИШКЕК: ДЕНЬ, ЗАКАТ, НОЧЬ, СМОГ)
+  // =========================================================================
+  let currentBgMode = "auto"; // "auto" | "day" | "sunset" | "night" | "smog"
+
+  function getBishkekHour() {
+    try {
+      const bishkekTimeStr = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Bishkek",
+        hour: "numeric",
+        hour12: false
+      }).format(new Date());
+      return parseInt(bishkekTimeStr, 10);
+    } catch (e) {
+      const d = new Date();
+      return (d.getUTCHours() + 6) % 24;
+    }
+  }
+
+  function updateAtmosphereBackground() {
+  const slideDay = document.getElementById("bgSlideDay");
+  const slideSunset = document.getElementById("bgSlideSunset");
+  const slideNight = document.getElementById("bgSlideNight");
+  const slideSmog = document.getElementById("bgSlideSmog");
+  const slideRain = document.getElementById("bgSlideRain");
+  const slideSnow = document.getElementById("bgSlideSnow");
+  const slideHeat = document.getElementById("bgSlideHeat");
+
+  // Map background types to icons and labels
+  const meta = {
+    day: { icon: "☀️", label: "День" },
+    sunset: { icon: "🌅", label: "Закат" },
+    night: { icon: "🌙", label: "Ночь" },
+    smog: { icon: "🌫️", label: "Смог" },
+    rain: { icon: "🌧️", label: "Дождь" },
+    snow: { icon: "❄️", label: "Снег" },
+    heat: { icon: "🔥", label: "Жара" }
+  };
+
+  let activeType = "day";
+
+  if (currentBgMode === "auto") {
+    if (typeof currentSeason !== "undefined" && currentSeason === "winter") {
+      activeType = "smog";
+    } else {
+      const h = getBishkekHour();
+      if (h >= 6 && h < 18) {
+        activeType = "day";
+      } else if (h >= 18 && h < 21) {
+        activeType = "sunset";
+      } else {
+        activeType = "night";
+      }
+    }
+  } else {
+    activeType = currentBgMode;
+  }
+
+  // Toggle slides
+  slideDay?.classList.toggle("active", activeType === "day");
+  slideSunset?.classList.toggle("active", activeType === "sunset");
+  slideNight?.classList.toggle("active", activeType === "night");
+  slideSmog?.classList.toggle("active", activeType === "smog");
+  slideRain?.classList.toggle("active", activeType === "rain");
+  slideSnow?.classList.toggle("active", activeType === "snow");
+  slideHeat?.classList.toggle("active", activeType === "heat");
+
+  const iconEl = document.getElementById("bgModeIcon");
+  const labelEl = document.getElementById("bgModeLabel");
+  if (currentBgMode === "auto") {
+    if (iconEl) iconEl.textContent = meta[activeType]?.icon || "⚡";
+    if (labelEl) labelEl.textContent = `Авто (${meta[activeType]?.label || "День"})`;
+  } else {
+    if (iconEl) iconEl.textContent = meta[activeType]?.icon || "☀️";
+    if (labelEl) labelEl.textContent = meta[activeType]?.label || "День";
+  }
+
+  document.querySelectorAll(".bg-option").forEach((opt) => {
+    opt.classList.toggle("active", opt.dataset.bg === currentBgMode);
+  });
+  document.querySelectorAll(".mobile-bg-switcher .mbs-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.bg === currentBgMode);
+  });
+}
+
+  function setBgMode(mode) {
+    currentBgMode = mode;
+    updateAtmosphereBackground();
+  }
+
+  const bgModeBtn = document.getElementById("bgModeBtn");
+  const bgModeMenu = document.getElementById("bgModeMenu");
+  const bgModeDropdown = document.getElementById("bgModeDropdown");
+
+  bgModeBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    bgModeDropdown?.classList.toggle("open");
+    bgModeMenu?.classList.toggle("show");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!bgModeDropdown?.contains(e.target)) {
+      bgModeDropdown?.classList.remove("open");
+      bgModeMenu?.classList.remove("show");
+    }
+  });
+
+  document.querySelectorAll(".bg-option").forEach((opt) => {
+    opt.addEventListener("click", () => {
+      const bg = opt.dataset.bg;
+      setBgMode(bg);
+      bgModeDropdown?.classList.remove("open");
+      bgModeMenu?.classList.remove("show");
+      const name = opt.querySelector("strong")?.textContent || bg;
+      if (typeof window.showToast === "function") {
+        window.showToast(`✓ Атмосферный фон: ${name}`);
+      }
+    });
+  });
+
+  document.querySelectorAll(".mobile-bg-switcher .mbs-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const bg = btn.dataset.bg;
+      setBgMode(bg);
+      if (typeof window.showToast === "function") {
+        window.showToast(`✓ Фон изменён: ${btn.textContent.trim()}`);
+      }
+    });
+  });
+
+  updateAtmosphereBackground();
+  setInterval(updateAtmosphereBackground, 5 * 60 * 1000);
+
   // -----------------------------------------------------------------------
   // 1. ДАННЫЕ ПО 4 РАЙОНАМ БИШКЕКА (Слайд 05 и 06)
   // -----------------------------------------------------------------------
@@ -508,6 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('active');
       currentSeason = btn.dataset.season;
       updateAirDashboard();
+      updateAtmosphereBackground();
     });
   });
 
@@ -738,6 +872,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const bishkekHour = (new Date().getUTCHours() + 6) % 24;
+    const isNowOpen = bishkekHour >= 9 && bishkekHour < 18;
+    const statusBadgeHtml = isNowOpen
+      ? `<span class="ac-status-badge ac-status-open">● Открыто сейчас</span>`
+      : `<span class="ac-status-badge ac-status-closed">○ Закрыто сейчас</span>`;
+
     grid.innerHTML = filtered
       .map(
         (item) => `
@@ -745,7 +885,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <div>
           <div class="ac-top">
             <span class="ac-cat-badge cat-${item.category}">↻ ${item.catName}</span>
-            <span class="ac-verified">✓ Проверено</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              ${statusBadgeHtml}
+              <span class="ac-verified">✓ Проверено</span>
+            </div>
           </div>
           <h4 class="ac-title">${item.title}</h4>
           <div class="ac-meta-list">
@@ -759,17 +902,46 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="ac-meta-item">
               <span>📞</span>
-              <span class="mono">${item.phone}</span>
+              <a href="tel:${item.phone.replace(/[^0-9+]/g, '')}" class="mono" style="color:var(--accent-emerald); text-decoration:none;">${item.phone}</a>
             </div>
           </div>
         </div>
-        <div class="ac-conditions">
-          <strong>Условия приёма:</strong> ${item.conditions}
+        <div>
+          <div class="ac-conditions">
+            <strong>Условия приёма:</strong> ${item.conditions}
+          </div>
+          <div class="ac-actions-row">
+            <a href="https://2gis.kg/bishkek/search/${encodeURIComponent(item.address)}" target="_blank" rel="noopener noreferrer" class="btn-card-action btn-2gis" title="Открыть в 2GIS Бишкек">
+              <i data-lucide="map-pin"></i> <span>2GIS Маршрут</span>
+            </a>
+            <button type="button" class="btn-card-action btn-copy-addr" data-addr="${item.address}" title="Скопировать точный адрес">
+              <i data-lucide="copy"></i> <span>Скопировать</span>
+            </button>
+          </div>
         </div>
       </article>
     `
       )
       .join('');
+
+    grid.querySelectorAll('.btn-copy-addr').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const addr = btn.dataset.addr;
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(addr).then(() => {
+            showToast(`✓ Адрес «${addr}» скопирован!`);
+          }).catch(() => {
+            showToast(`✓ Адрес: ${addr}`);
+          });
+        } else {
+          showToast(`✓ Адрес: ${addr}`);
+        }
+      });
+    });
+
+    if (window.lucide) {
+      lucide.createIcons();
+    }
   }
 
   document.querySelectorAll('#recyclingCategoryTabs .rec-cat-card').forEach((btn) => {
@@ -1125,6 +1297,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderGreenCatalog();
   });
+
+  // Dynamic Tree CO2 Impact Calculator Listener
+  const propCountInput = document.getElementById('propCount');
+  function updateTreeImpact() {
+    const count = parseInt(propCountInput?.value) || 0;
+    const co2 = count * 22;
+    const oxygen = count * 2;
+    const dust = count * 30;
+    const calcText = document.getElementById('treeCalcText');
+    if (calcText) {
+      calcText.innerHTML = `<strong>${count} саженцев:</strong> поглотят ~${co2} кг CO2 в год, задержат до ${dust} кг уличной пыли и обеспечат кислородом ~${oxygen} чел.`;
+    }
+  }
+  propCountInput?.addEventListener('input', updateTreeImpact);
 
   // -----------------------------------------------------------------------
   // 5. РАЗДЕЛ «ОБРАЗОВАТЕЛЬНЫЙ КОНТЕНТ» И ТЕСТ (Слайд 10)
@@ -1528,371 +1714,573 @@ document.addEventListener('DOMContentLoaded', () => {
   renderEduArticle();
   renderQuiz();
 });
-/* ==================================================
-   ТАЗА АБА — РЕАЛЬНАЯ СТАНЦИЯ ESP32
-   Датчики: SDS011 + DHT11
-   Источник: Supabase
-   ================================================== */
+/* =========================================================================
+   ТАЗА АБА — РЕАЛЬНАЯ СТАНЦИЯ ESP32 & TELEMETRY COMMAND CENTER
+   Датчики: Лазерный сенсор пыли SDS011 + Климатический сенсор DHT11/22
+   Источник данных: Supabase Cloud REST API
+   ========================================================================= */
+
+// Global Toast helper
+window.showToast = function (message) {
+  const toast = document.getElementById('ecoToast');
+  const msgEl = document.getElementById('toastMessage');
+  if (!toast || !msgEl) return;
+  msgEl.textContent = message;
+  toast.hidden = false;
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => {
+      toast.hidden = true;
+    }, 300);
+  }, 2800);
+};
 
 (() => {
   "use strict";
 
   // ==========================================
-  // НАСТРОЙКИ SUPABASE
+  // НАСТРОЙКИ SUPABASE (СОХРАНЕНЫ БЕЗ ИЗМЕНЕНИЙ)
   // ==========================================
-
-  const SUPABASE_URL =
-    "https://ojrjpsmkqfskkrjgybsq.supabase.co";
-
-  // ВСТАВЬ СВОЙ PUBLISHABLE KEY
-  const SUPABASE_KEY =
-    "sb_publishable_BsQjRVQ0VVWGTDb1qTA8Ww_NTsqzlj8";
-
-  // Обновление раз в 15 секунд
-  const UPDATE_INTERVAL = 15000;
-
-  // Через 2 минуты без измерений - офлайн
-  const OFFLINE_TIMEOUT = 120000;
+  const SUPABASE_URL = "https://ojrjpsmkqfskkrjgybsq.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_BsQjRVQ0VVWGTDb1qTA8Ww_NTsqzlj8";
+  const UPDATE_INTERVAL = 15000; // 15 секунд
+  const OFFLINE_TIMEOUT = 120000; // 2 минуты
 
   let lastMeasurement = null;
   let connectionError = false;
   let isLoading = false;
 
   // ==========================================
-  // СОЗДАНИЕ БЛОКА СТАНЦИИ
+  // РАСЧЁТ ИНДЕКСА КАЧЕСТВА ВОЗДУХА (US AQI)
   // ==========================================
-
-  function createStationPanel() {
-
-    if (document.getElementById("esp32-live-panel")) {
-      return;
-    }
-
-    const airSection =
-      document.getElementById("air");
-
-    if (!airSection) {
-      console.error("Раздел #air не найден");
-      return;
-    }
-
-    const style = document.createElement("style");
-
-    style.textContent = `
-      #esp32-live-panel {
-        max-width: 1160px;
-        margin: 25px auto;
-        padding: 24px;
-        border-radius: 20px;
-        border: 1px solid rgba(16,185,129,.35);
-        background: var(
-          --card-bg,
-          rgba(16,185,129,.06)
-        );
-        color: var(--text-primary, inherit);
-        box-shadow: 0 12px 35px rgba(0,0,0,.08);
-      }
-
-      #esp32-live-panel * {
-        box-sizing: border-box;
-      }
-
-      .esp32-panel-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 12px;
-      }
-
-      .esp32-panel-header h3 {
-        margin: 0;
-        font-size: 1.3rem;
-      }
-
-      #esp32-status {
-        padding: 8px 14px;
-        border-radius: 20px;
-        background: rgba(107,114,128,.15);
-        font-size: 13px;
-        font-weight: 700;
-      }
-
-      .esp32-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 14px;
-        margin: 20px 0;
-      }
-
-      .esp32-card {
-        padding: 18px;
-        border-radius: 14px;
-        border: 1px solid rgba(128,128,128,.2);
-        background: rgba(128,128,128,.06);
-      }
-
-      .esp32-card-label {
-        font-size: 13px;
-        opacity: .75;
-        margin-bottom: 10px;
-      }
-
-      .esp32-card-value {
-        font-size: 27px;
-        font-weight: 750;
-        line-height: 1.25;
-      }
-
-      .esp32-card-unit {
-        font-size: 12px;
-        opacity: .7;
-        margin-top: 5px;
-      }
-
-      #esp32-updated {
-        font-size: 13px;
-        opacity: .8;
-      }
-
-      #esp32-description {
-        font-size: 12px;
-        opacity: .7;
-        line-height: 1.6;
-        margin-top: 12px;
-      }
-
-      @media (max-width: 650px) {
-        .esp32-grid {
-          grid-template-columns: repeat(2, 1fr);
-        }
-
-        #esp32-live-panel {
-          padding: 16px;
-        }
-
-        .esp32-card {
-          padding: 14px;
-        }
-
-        .esp32-card-value {
-          font-size: 23px;
-        }
-      }
-    `;
-
-    document.head.appendChild(style);
-
-    const panel = document.createElement("article");
-
-    panel.id = "esp32-live-panel";
-
-    panel.innerHTML = `
-      <div class="esp32-panel-header">
-
-        <h3>
-          📡 Реальная станция ESP32
-        </h3>
-
-        <span id="esp32-status">
-          Подключение...
-        </span>
-
-      </div>
-
-      <div class="esp32-grid">
-
-        <div class="esp32-card">
-          <div class="esp32-card-label">
-            🌡 Температура
-          </div>
-
-          <div class="esp32-card-value"
-               id="esp32-temperature">—</div>
-
-          <div class="esp32-card-unit">
-            DHT11
-          </div>
-        </div>
-
-        <div class="esp32-card">
-          <div class="esp32-card-label">
-            💧 Влажность
-          </div>
-
-          <div class="esp32-card-value"
-               id="esp32-humidity">—</div>
-
-          <div class="esp32-card-unit">
-            DHT11
-          </div>
-        </div>
-
-        <div class="esp32-card">
-          <div class="esp32-card-label">
-            🌫 PM2.5
-          </div>
-
-          <div class="esp32-card-value"
-               id="esp32-pm25">—</div>
-
-          <div class="esp32-card-unit">
-            мкг/м³ · SDS011
-          </div>
-        </div>
-
-        <div class="esp32-card">
-          <div class="esp32-card-label">
-            💨 PM10
-          </div>
-
-          <div class="esp32-card-value"
-               id="esp32-pm10">—</div>
-
-          <div class="esp32-card-unit">
-            мкг/м³ · SDS011
-          </div>
-        </div>
-
-      </div>
-
-      <p id="esp32-updated">
-        Последнее измерение: —
-      </p>
-
-      <p id="esp32-description">
-        Данные поступают с физической станции
-        ESP32 через Wi-Fi и Supabase.
-        Показатели одной станции не являются
-        средними значениями по всему Бишкеку.
-        Данные карты районов представлены отдельно.
-      </p>
-    `;
-
-    airSection.prepend(panel);
+  function calcAqiFromPm25(pm) {
+    if (pm <= 12.0) return Math.round((50 / 12.0) * pm);
+    if (pm <= 35.4) return Math.round(51 + ((100 - 51) / (35.4 - 12.1)) * (pm - 12.1));
+    if (pm <= 55.4) return Math.round(101 + ((150 - 101) / (55.4 - 35.5)) * (pm - 35.5));
+    if (pm <= 150.4) return Math.round(151 + ((200 - 151) / (150.4 - 55.5)) * (pm - 55.5));
+    if (pm <= 250.4) return Math.round(201 + ((300 - 201) / (250.4 - 150.5)) * (pm - 150.5));
+    return Math.round(301 + ((500 - 301) / (500.4 - 250.5)) * (pm - 250.5));
   }
 
   // ==========================================
-  // ОБНОВЛЕНИЕ ТЕКСТА
+  // ОБНОВЛЕНИЕ СТАТУСА СТАНЦИИ
   // ==========================================
+  function setStationStatus(text, color, isOnline) {
+    const statusEl = document.getElementById("esp32-status");
+    const mobStatus = document.getElementById("mobEspStatusTxt");
+    const beacon = document.querySelector(".live-beacon");
 
-  function updateText(id, value) {
-
-    const element = document.getElementById(id);
-
-    if (element) {
-      element.textContent = value;
+    if (statusEl) {
+      statusEl.textContent = text;
+      statusEl.style.color = color;
+    }
+    if (mobStatus) {
+      mobStatus.textContent = isOnline ? "ESP32 Онлайн" : "ESP32 Ожидание";
+      mobStatus.style.color = color;
+    }
+    if (beacon) {
+      beacon.style.background = color;
+      beacon.style.boxShadow = `0 0 10px ${color}`;
     }
   }
 
-  // ==========================================
-  // СТАТУС СТАНЦИИ
-  // ==========================================
-
-  function setStatus(text, color) {
-
-    const status =
-      document.getElementById("esp32-status");
-
-    if (!status) return;
-
-    status.textContent = text;
-    status.style.color = color;
-
-    status.style.background =
-      color === "#059669"
-        ? "rgba(16,185,129,.13)"
-        : "rgba(245,158,11,.14)";
-  }
-
-  function updateStatus() {
-
+  function updateStationConnectionState() {
     if (connectionError) {
-      setStatus("● Нет связи с базой", "#d97706");
+      setStationStatus("● Нет связи с Supabase", "#f59e0b", false);
       return;
     }
-
     if (!lastMeasurement) {
-      setStatus("● Ожидание данных", "#d97706");
+      setStationStatus("● Ожидание данных датчика", "#f59e0b", false);
       return;
     }
 
-    const measurementTime =
-      new Date(lastMeasurement.created_at).getTime();
-
+    const measurementTime = new Date(lastMeasurement.created_at).getTime();
     const age = Date.now() - measurementTime;
 
-    if (
-      Number.isFinite(age) &&
-      age >= 0 &&
-      age <= OFFLINE_TIMEOUT
-    ) {
-      setStatus("● Станция онлайн", "#059669");
+    if (Number.isFinite(age) && age >= 0 && age <= OFFLINE_TIMEOUT) {
+      setStationStatus("● Станция онлайн (Wi-Fi)", "#10b981", true);
     } else {
-      setStatus("● Нет свежих данных", "#d97706");
+      setStationStatus("● Нет свежих данных (офлайн)", "#f59e0b", false);
     }
   }
 
   // ==========================================
-  // ОТОБРАЖЕНИЕ ПОКАЗАНИЙ
+  // ФОРМАТИРОВАНИЕ ВРЕМЕНИ ИЗМЕРЕНИЯ
   // ==========================================
+  function updateTimeBadge(timestamp) {
+    const updatedEl = document.getElementById("esp32-updated");
+    if (!updatedEl) return;
 
-  function renderMeasurement(data) {
-
-    updateText(
-      "esp32-temperature",
-      Number(data.temperature).toFixed(1) + " °C"
-    );
-
-    updateText(
-      "esp32-humidity",
-      Number(data.humidity).toFixed(0) + " %"
-    );
-
-    updateText(
-      "esp32-pm25",
-      Number(data.pm25).toFixed(1)
-    );
-
-    updateText(
-      "esp32-pm10",
-      Number(data.pm10).toFixed(1)
-    );
-
-    const date = new Date(data.created_at);
-
+    const date = new Date(timestamp);
     const formatted = Number.isFinite(date.getTime())
-      ? date.toLocaleString("ru-RU", {
-          timeZone: "Asia/Bishkek"
-        })
+      ? date.toLocaleTimeString("ru-RU", { timeZone: "Asia/Bishkek" })
       : "неизвестно";
 
-    updateText(
-      "esp32-updated",
-      "Последнее измерение: " +
-      formatted +
-      " (Бишкек)"
-    );
+    const diffSec = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+    let agoTxt = "только что";
+    if (diffSec >= 60) {
+      agoTxt = `${Math.floor(diffSec / 60)} мин назад`;
+    } else if (diffSec > 5) {
+      agoTxt = `${diffSec} сек назад`;
+    }
 
-    updateStatus();
+    updatedEl.innerHTML = `<i data-lucide="clock"></i> <span>Измерение: ${formatted} (${agoTxt})</span>`;
+    if (window.lucide) {
+      lucide.createIcons();
+    }
   }
 
   // ==========================================
-  // ПОЛУЧЕНИЕ ДАННЫХ SUPABASE
+  // ДИНАМИЧЕСКИЙ ФОТО-ИНДИКАТОР ПОКАЗАТЕЛЕЙ ДАТЧИКОВ
+  // Норма (Бишкек/Ала-Тоо), Умеренно (Городская дымка), Опасно (Зимний смог)
   // ==========================================
+  let isSimulatingPhoto = false;
 
+  function updateSensorPhotoIndicator(pm25) {
+    const photoClean = document.getElementById("bannerPhotoClean");
+    const photoMod = document.getElementById("bannerPhotoMod");
+    const photoDanger = document.getElementById("bannerPhotoDanger");
+
+    const cpiClean = document.getElementById("cpiClean");
+    const cpiMod = document.getElementById("cpiMod");
+    const cpiDanger = document.getElementById("cpiDanger");
+
+    const statusTag = document.getElementById("bannerStatusTag");
+    const statusTitle = document.getElementById("bannerStatusTitle");
+    const headline = document.getElementById("bannerHeadline");
+    const desc = document.getElementById("bannerDesc");
+
+    if (pm25 <= 15.0) {
+      // 1. Норма ВОЗ (Чистый горный воздух)
+      photoClean?.classList.add("active");
+      photoMod?.classList.remove("active");
+      photoDanger?.classList.remove("active");
+
+      cpiClean?.classList.add("active");
+      cpiMod?.classList.remove("active");
+      cpiDanger?.classList.remove("active");
+
+      if (statusTag) {
+        statusTag.style.background = "rgba(16, 185, 129, 0.2)";
+        statusTag.style.borderColor = "rgba(16, 185, 129, 0.45)";
+        statusTag.style.color = "#34d399";
+      }
+      if (statusTitle) statusTitle.textContent = "НОРМА ВОЗ • ЧИСТЫЙ ВОЗДУХ";
+      if (headline) headline.textContent = "Атмосферный фон в пределах безопасной нормы";
+      if (desc) desc.textContent = "Концентрация PM2.5 идеальна (до 15 мкг/м³). Свежий горный воздух с Ала-Тоо, прогулки и проветривание помещений полностью безопасны.";
+    } else if (pm25 <= 55.0) {
+      // 2. Умеренное загрязнение (Городская дымка)
+      photoClean?.classList.remove("active");
+      photoMod?.classList.add("active");
+      photoDanger?.classList.remove("active");
+
+      cpiClean?.classList.remove("active");
+      cpiMod?.classList.add("active");
+      cpiDanger?.classList.remove("active");
+
+      if (statusTag) {
+        statusTag.style.background = "rgba(245, 158, 11, 0.2)";
+        statusTag.style.borderColor = "rgba(245, 158, 11, 0.45)";
+        statusTag.style.color = "#fbbf24";
+      }
+      if (statusTitle) statusTitle.textContent = "УМЕРЕННАЯ ГОРОДСКАЯ ДЫМКА";
+      if (headline) headline.textContent = "Повышенное содержание взвешенных частиц";
+      if (desc) desc.textContent = "Умеренная городская дымка и дорожная пыль. Чувствительным жителям лучше сократить интенсивные пробежки вдоль оживлённых магистралей Бишкека.";
+    } else {
+      // 3. Высокое опасное загрязнение (Зимний смог)
+      photoClean?.classList.remove("active");
+      photoMod?.classList.remove("active");
+      photoDanger?.classList.add("active");
+
+      cpiClean?.classList.remove("active");
+      cpiMod?.classList.remove("active");
+      cpiDanger?.classList.add("active");
+
+      if (statusTag) {
+        statusTag.style.background = "rgba(239, 68, 68, 0.25)";
+        statusTag.style.borderColor = "rgba(239, 68, 68, 0.6)";
+        statusTag.style.color = "#f87171";
+      }
+      if (statusTitle) statusTitle.textContent = "🚨 ОПАСНЫЙ ЗИМНИЙ СМОГ";
+      if (headline) headline.textContent = "Критический уровень смога в Чуйской долине!";
+      if (desc) desc.textContent = "Инверсионная дымка и высокая концентрация сажи. Держите окна закрытыми, включите очиститель воздуха, на улице используйте респиратор класса N95 / FFP2.";
+    }
+  }
+
+  // ==========================================
+  // ГЛАВНЫЙ РЕНДЕР ТЕЛЕМЕТРИИ И ШКАЛ
+  // ==========================================
+  function renderMeasurement(data) {
+    const temp = Number(data.temperature);
+    const hum = Number(data.humidity);
+    const pm25 = Number(data.pm25);
+    const pm10 = Number(data.pm10);
+    const tSign = temp > 0 ? "+" : "";
+
+    // Синхронизация фото-индикатора датчиков (Норма / Дымка / Смог)
+    updateSensorPhotoIndicator(pm25);
+
+    // -----------------------------------------------------------------------
+    // 1. ТЕМПЕРАТУРА (Шкала "Холодно — Комфорт — Жара")
+    // -----------------------------------------------------------------------
+    const tempEl = document.getElementById("esp32-temperature");
+    const tempBadge = document.getElementById("esp32-temp-badge");
+    const tempNeedle = document.getElementById("esp32-temp-needle");
+    const tempHint = document.getElementById("esp32-temp-hint");
+
+    if (tempEl) {
+      tempEl.textContent = `${tSign}${temp.toFixed(1)} °C`;
+    }
+
+    // Needle mapping: from -10°C (0%) to +40°C (100%)
+    if (tempNeedle) {
+      const tempPct = Math.max(0, Math.min(100, ((temp - (-10)) / (40 - (-10))) * 100));
+      tempNeedle.style.left = `${tempPct}%`;
+    }
+
+    if (tempBadge && tempHint) {
+      if (temp < 0) {
+        tempBadge.textContent = "❄️ Морозно";
+        tempBadge.style.color = "#38bdf8";
+        tempBadge.style.background = "rgba(56, 189, 248, 0.16)";
+        tempBadge.style.borderColor = "rgba(56, 189, 248, 0.4)";
+        tempHint.textContent = "Отрицательная температура. Риск наледи на дорогах и тротуарах Бишкека.";
+      } else if (temp < 10) {
+        tempBadge.textContent = "🧣 Холодно";
+        tempBadge.style.color = "#06b6d4";
+        tempBadge.style.background = "rgba(6, 182, 212, 0.16)";
+        tempBadge.style.borderColor = "rgba(6, 182, 212, 0.4)";
+        tempHint.textContent = "Холодный воздух. Рекомендуется тёплая верхняя одежда в утренние и вечерние часы.";
+      } else if (temp < 18) {
+        tempBadge.textContent = "🌤️ Прохладно";
+        tempBadge.style.color = "#2dd4bf";
+        tempBadge.style.background = "rgba(45, 212, 191, 0.16)";
+        tempBadge.style.borderColor = "rgba(45, 212, 191, 0.4)";
+        tempHint.textContent = "Бодрящая прохлада. Комфортно для активных прогулок и спорта в демисезонной одежде.";
+      } else if (temp < 25) {
+        tempBadge.textContent = "✨ Комфортно";
+        tempBadge.style.color = "#10b981";
+        tempBadge.style.background = "rgba(16, 185, 129, 0.16)";
+        tempBadge.style.borderColor = "rgba(16, 185, 129, 0.4)";
+        tempHint.textContent = "Идеальный климатический комфорт (18–24°C). Оптимальные условия для проветривания.";
+      } else if (temp < 32) {
+        tempBadge.textContent = "☀️ Жарко";
+        tempBadge.style.color = "#f59e0b";
+        tempBadge.style.background = "rgba(245, 158, 11, 0.16)";
+        tempBadge.style.borderColor = "rgba(245, 158, 11, 0.4)";
+        tempHint.textContent = "Тёплая / жаркая погода. Рекомендуется пить больше воды и находиться в тени.";
+      } else {
+        tempBadge.textContent = "🔥 Сильная жара";
+        tempBadge.style.color = "#ef4444";
+        tempBadge.style.background = "rgba(239, 68, 68, 0.18)";
+        tempBadge.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        tempHint.textContent = "Экстремальная жара (>32°C). Ограничьте нахождение под прямыми солнечными лучами.";
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 2. ВЛАЖНОСТЬ (Шкала "Сухо — Оптимально — Сырость")
+    // -----------------------------------------------------------------------
+    const humEl = document.getElementById("esp32-humidity");
+    const humBadge = document.getElementById("esp32-hum-badge");
+    const humNeedle = document.getElementById("esp32-hum-needle");
+    const humHint = document.getElementById("esp32-hum-hint");
+
+    if (humEl) {
+      humEl.textContent = `${hum.toFixed(0)} %`;
+    }
+
+    if (humNeedle) {
+      const humPct = Math.max(0, Math.min(100, hum));
+      humNeedle.style.left = `${humPct}%`;
+    }
+
+    if (humBadge && humHint) {
+      if (hum < 30) {
+        humBadge.textContent = "🏜️ Сухо (<30%)";
+        humBadge.style.color = "#f59e0b";
+        humBadge.style.background = "rgba(245, 158, 11, 0.16)";
+        humBadge.style.borderColor = "rgba(245, 158, 11, 0.4)";
+        humHint.textContent = "Сухой воздух. Пересыхают слизистые оболочки дыхательных путей; полезно увлажнение.";
+      } else if (hum <= 60) {
+        humBadge.textContent = "🌿 Оптимально";
+        humBadge.style.color = "#10b981";
+        humBadge.style.background = "rgba(16, 185, 129, 0.16)";
+        humBadge.style.borderColor = "rgba(16, 185, 129, 0.4)";
+        humHint.textContent = "Идеальный диапазон влажности (30–60%) для комфортного дыхания и здоровья.";
+      } else if (hum <= 75) {
+        humBadge.textContent = "💧 Повышенная";
+        humBadge.style.color = "#06b6d4";
+        humBadge.style.background = "rgba(6, 182, 212, 0.16)";
+        humBadge.style.borderColor = "rgba(6, 182, 212, 0.4)";
+        humHint.textContent = "Умеренно влажно. Способствует оседанию тяжёлой минеральной пыли на асфальт.";
+      } else {
+        humBadge.textContent = "🌫️ Сырость / Туман";
+        humBadge.style.color = "#818cf8";
+        humBadge.style.background = "rgba(129, 140, 248, 0.16)";
+        humBadge.style.borderColor = "rgba(129, 140, 248, 0.4)";
+        humHint.textContent = "Высокая влажность. Микрокапли тумана могут рассеивать лазерный луч оптического сенсора SDS011.";
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 3. PM2.5 (НОРМА ВОЗ: 15 мкг/м³ & СПЕКТР ЗАГРЯЗНЕНИЯ)
+    // -----------------------------------------------------------------------
+    const pm25El = document.getElementById("esp32-pm25");
+    const pm25Badge = document.getElementById("esp32-pm25-badge");
+    const pm25Needle = document.getElementById("esp32-pm25-needle");
+    const pm25Hint = document.getElementById("esp32-pm25-hint");
+    const pm25Ratio = document.getElementById("esp32-pm25-ratio");
+    const pm25Card = document.getElementById("espPm25Card");
+
+    if (pm25El) {
+      pm25El.textContent = pm25.toFixed(1);
+    }
+
+    // Piecewise scale mapping:
+    // 0 = 0% | 15 (WHO Norm) = 12% | 35 = 30% | 75 = 60% | 150 = 95%
+    if (pm25Needle) {
+      let pct = 0;
+      if (pm25 <= 15) {
+        pct = (pm25 / 15) * 12;
+      } else if (pm25 <= 35) {
+        pct = 12 + ((pm25 - 15) / 20) * 18;
+      } else if (pm25 <= 75) {
+        pct = 30 + ((pm25 - 35) / 40) * 30;
+      } else if (pm25 <= 150) {
+        pct = 60 + ((pm25 - 75) / 75) * 35;
+      } else {
+        pct = 100;
+      }
+      pm25Needle.style.left = `${Math.min(100, Math.max(0, pct))}%`;
+    }
+
+    // Comparison vs WHO 24h standard (15 ug/m3)
+    if (pm25Ratio) {
+      if (pm25 <= 15.0) {
+        const p = Math.round((pm25 / 15.0) * 100);
+        pm25Ratio.textContent = `В норме ВОЗ (${p}% от лимита)`;
+        pm25Ratio.style.color = "#10b981";
+      } else {
+        const times = (pm25 / 15.0).toFixed(1);
+        pm25Ratio.textContent = `Превышение нормы ВОЗ в ${times}× раза!`;
+        pm25Ratio.style.color = pm25 > 75 ? "#ef4444" : pm25 > 35 ? "#f97316" : "#eab308";
+      }
+    }
+
+    // Color gradient shifts & health guidance
+    let pm25Color = "#10b981";
+    if (pm25 <= 15.0) {
+      pm25Color = "#10b981";
+      if (pm25Badge) {
+        pm25Badge.textContent = "🌿 Чистый воздух (Норма)";
+        pm25Badge.style.color = "#10b981";
+        pm25Badge.style.background = "rgba(16, 185, 129, 0.16)";
+        pm25Badge.style.borderColor = "rgba(16, 185, 129, 0.4)";
+      }
+      if (pm25Hint) {
+        pm25Hint.textContent = "Воздух безопасен для всех жителей. Проветривание помещений и спорт на улице без ограничений.";
+      }
+      if (pm25Card) {
+        pm25Card.style.borderColor = "rgba(16, 185, 129, 0.35)";
+        pm25Card.style.boxShadow = "none";
+      }
+    } else if (pm25 <= 35.0) {
+      pm25Color = "#eab308";
+      if (pm25Badge) {
+        pm25Badge.textContent = "⚠️ Умеренное превышение";
+        pm25Badge.style.color = "#eab308";
+        pm25Badge.style.background = "rgba(234, 179, 8, 0.16)";
+        pm25Badge.style.borderColor = "rgba(234, 179, 8, 0.4)";
+      }
+      if (pm25Hint) {
+        pm25Hint.textContent = "Небольшое превышение нормы ВОЗ. Качество воздуха приемлемо для большинства жителей.";
+      }
+      if (pm25Card) {
+        pm25Card.style.borderColor = "rgba(234, 179, 8, 0.45)";
+        pm25Card.style.boxShadow = "0 8px 24px rgba(234, 179, 8, 0.12)";
+      }
+    } else if (pm25 <= 75.0) {
+      pm25Color = "#f97316";
+      if (pm25Badge) {
+        pm25Badge.textContent = "🔶 Вредно для чувствительных";
+        pm25Badge.style.color = "#f97316";
+        pm25Badge.style.background = "rgba(249, 115, 22, 0.18)";
+        pm25Badge.style.borderColor = "rgba(249, 115, 22, 0.45)";
+      }
+      if (pm25Hint) {
+        pm25Hint.textContent = "Повышенный уровень смога! Детям, пожилым и людям с астмой лучше избегать пробежек вдоль трасс.";
+      }
+      if (pm25Card) {
+        pm25Card.style.borderColor = "rgba(249, 115, 22, 0.55)";
+        pm25Card.style.boxShadow = "0 8px 28px rgba(249, 115, 22, 0.2)";
+      }
+    } else if (pm25 <= 150.0) {
+      pm25Color = "#ef4444";
+      if (pm25Badge) {
+        pm25Badge.textContent = "🔴 ОПАСНО ДЛЯ ЗДОРОВЬЯ";
+        pm25Badge.style.color = "#ef4444";
+        pm25Badge.style.background = "rgba(239, 68, 68, 0.2)";
+        pm25Badge.style.borderColor = "rgba(239, 68, 68, 0.5)";
+      }
+      if (pm25Hint) {
+        pm25Hint.textContent = "Опасная концентрация смога! Закройте окна, включите очиститель воздуха, на улице используйте респиратор FFP2.";
+      }
+      if (pm25Card) {
+        pm25Card.style.borderColor = "#ef4444";
+        pm25Card.style.boxShadow = "0 0 30px rgba(239, 68, 68, 0.35)";
+      }
+    } else {
+      pm25Color = "#a855f7";
+      if (pm25Badge) {
+        pm25Badge.textContent = "☣️ КРИТИЧЕСКИЙ СМОГ (ЧС)";
+        pm25Badge.style.color = "#c084fc";
+        pm25Badge.style.background = "rgba(168, 85, 247, 0.25)";
+        pm25Badge.style.borderColor = "rgba(168, 85, 247, 0.6)";
+      }
+      if (pm25Hint) {
+        pm25Hint.textContent = "АВАРИЙНОЕ ЗАГРЯЗНЕНИЕ! Избегайте выхода на улицу, обязателен плотный респиратор класса FFP3 / KN95!";
+      }
+      if (pm25Card) {
+        pm25Card.style.borderColor = "#a855f7";
+        pm25Card.style.boxShadow = "0 0 35px rgba(168, 85, 247, 0.55)";
+      }
+    }
+
+    const needleInd = pm25Needle?.querySelector(".needle-indicator");
+    if (needleInd) {
+      needleInd.style.borderColor = pm25Color;
+      needleInd.classList.toggle("danger-indicator", pm25 > 55);
+    }
+
+    // -----------------------------------------------------------------------
+    // 4. PM10 (ДОРОЖНАЯ И МИНЕРАЛЬНАЯ ПЫЛЬ)
+    // -----------------------------------------------------------------------
+    const pm10El = document.getElementById("esp32-pm10");
+    const pm10Badge = document.getElementById("esp32-pm10-badge");
+    const pm10Needle = document.getElementById("esp32-pm10-needle");
+    const pm10Hint = document.getElementById("esp32-pm10-hint");
+
+    if (pm10El) {
+      pm10El.textContent = pm10.toFixed(1);
+    }
+
+    if (pm10Needle) {
+      const pct = Math.max(0, Math.min(100, (pm10 / 200) * 100));
+      pm10Needle.style.left = `${pct}%`;
+    }
+
+    if (pm10Badge && pm10Hint) {
+      if (pm10 <= 45.0) {
+        pm10Badge.textContent = "🌿 В пределах нормы";
+        pm10Badge.style.color = "#10b981";
+        pm10Badge.style.background = "rgba(16, 185, 129, 0.16)";
+        pm10Badge.style.borderColor = "rgba(16, 185, 129, 0.4)";
+        pm10Hint.textContent = "Концентрация крупной пыли в пределах суточного норматива ВОЗ (до 45 мкг/м³).";
+      } else if (pm10 <= 100.0) {
+        pm10Badge.textContent = "⚠️ Умеренная пыль";
+        pm10Badge.style.color = "#eab308";
+        pm10Badge.style.background = "rgba(234, 179, 8, 0.16)";
+        pm10Badge.style.borderColor = "rgba(234, 179, 8, 0.4)";
+        pm10Hint.textContent = "Умеренная дорожная пыль от автомобильного трафика и строек Бишкека.";
+      } else {
+        pm10Badge.textContent = "🔴 Сильная запылённость";
+        pm10Badge.style.color = "#ef4444";
+        pm10Badge.style.background = "rgba(239, 68, 68, 0.18)";
+        pm10Badge.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        pm10Hint.textContent = "Повышенное содержание взвешенной пыли. Рекомендуется влажная уборка помещений.";
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 5. РАСЧЁТНЫЙ ИНДЕКС СТАНЦИИ (US AQI)
+    // -----------------------------------------------------------------------
+    const stationAqi = calcAqiFromPm25(pm25);
+    const aqiValEl = document.getElementById("esp32-aqi-val");
+    const aqiLvlEl = document.getElementById("esp32-aqi-lvl");
+    const aqiAdviceEl = document.getElementById("esp32-aqi-advice");
+
+    if (aqiValEl) aqiValEl.textContent = `AQI ${stationAqi}`;
+    if (aqiLvlEl) {
+      if (stationAqi <= 50) {
+        aqiLvlEl.textContent = "Хорошо";
+        aqiLvlEl.style.color = "#10b981";
+        aqiLvlEl.style.background = "rgba(16, 185, 129, 0.16)";
+      } else if (stationAqi <= 100) {
+        aqiLvlEl.textContent = "Умеренно";
+        aqiLvlEl.style.color = "#eab308";
+        aqiLvlEl.style.background = "rgba(234, 179, 8, 0.16)";
+      } else if (stationAqi <= 150) {
+        aqiLvlEl.textContent = "Для уязвимых групп";
+        aqiLvlEl.style.color = "#f97316";
+        aqiLvlEl.style.background = "rgba(249, 115, 22, 0.18)";
+      } else if (stationAqi <= 200) {
+        aqiLvlEl.textContent = "Вредно для здоровья";
+        aqiLvlEl.style.color = "#ef4444";
+        aqiLvlEl.style.background = "rgba(239, 68, 68, 0.2)";
+      } else {
+        aqiLvlEl.textContent = "Опасно (Смог)";
+        aqiLvlEl.style.color = "#c084fc";
+        aqiLvlEl.style.background = "rgba(168, 85, 247, 0.25)";
+      }
+    }
+
+    if (aqiAdviceEl) {
+      if (stationAqi <= 50) {
+        aqiAdviceEl.textContent = "Воздух идеальный. Отличное время для проветривания и спорта на улице.";
+      } else if (stationAqi <= 100) {
+        aqiAdviceEl.textContent = "Качество воздуха умеренное. Проветривание безопасно, чувствительным беречь дыхание.";
+      } else if (stationAqi <= 150) {
+        aqiAdviceEl.textContent = "Вредно для чувствительных людей. Рекомендуется сократить длительные прогулки вдоль магистралей.";
+      } else {
+        aqiAdviceEl.textContent = "Высокая концентрация микрочастиц. Держите окна закрытыми, используйте респираторы.";
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 6. СИНХРОНИЗАЦИЯ С ШАПКОЙ, ГЕРОЕМ И МОБИЛЬНЫМ МЕНЮ
+    // -----------------------------------------------------------------------
+    const navEspText = document.getElementById("navEspText");
+    if (navEspText) {
+      navEspText.textContent = `ESP32: ${tSign}${temp.toFixed(1)}°C • PM2.5: ${pm25.toFixed(1)}`;
+    }
+
+    const heroClimate = document.getElementById("heroClimate");
+    if (heroClimate) {
+      heroClimate.textContent = `${tSign}${temp.toFixed(1)}°C • ${hum.toFixed(0)}%`;
+    }
+
+    const mobEspValues = document.getElementById("mobEspValues");
+    if (mobEspValues) {
+      mobEspValues.innerHTML = `<span>Темп: ${tSign}${temp.toFixed(1)}°C</span> • <span>PM2.5: ${pm25.toFixed(1)}</span>`;
+    }
+
+    // -----------------------------------------------------------------------
+    // 7. СЫРОЙ JSON-ПАКЕТ
+    // -----------------------------------------------------------------------
+    const jsonPre = document.getElementById("esp32JsonContent");
+    if (jsonPre) {
+      jsonPre.textContent = JSON.stringify(data, null, 2);
+    }
+
+    updateTimeBadge(data.created_at);
+    updateStationConnectionState();
+  }
+
+  // ==========================================
+  // ЗАГРУЗКА ДАННЫХ ИЗ SUPABASE
+  // ==========================================
   async function loadSensorData() {
-
     if (isLoading) return;
-
     isLoading = true;
 
     try {
-
       if (!SUPABASE_KEY.startsWith("sb_publishable_")) {
-        throw new Error(
-          "Не указан Supabase Publishable key"
-        );
+        throw new Error("Не указан Supabase Publishable key");
       }
 
       const url =
@@ -1904,45 +2292,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const response = await fetch(url, {
         method: "GET",
-
         headers: {
-          "apikey": SUPABASE_KEY
+          apikey: SUPABASE_KEY
         },
-
         cache: "no-store"
       });
 
       if (!response.ok) {
-        throw new Error(
-          "HTTP error: " + response.status
-        );
+        throw new Error("HTTP error: " + response.status);
       }
 
       const rows = await response.json();
 
       if (!Array.isArray(rows)) {
-        throw new Error("Invalid response");
+        throw new Error("Invalid response format");
       }
 
       if (rows.length === 0) {
         lastMeasurement = null;
         connectionError = false;
-        updateStatus();
+        updateStationConnectionState();
         return;
       }
 
       const data = rows[0];
-
-      const required = [
-        "temperature",
-        "humidity",
-        "pm25",
-        "pm10"
-      ];
-
-      const valid = required.every(key =>
-        typeof data[key] === "number" &&
-        Number.isFinite(data[key])
+      const required = ["temperature", "humidity", "pm25", "pm10"];
+      const valid = required.every(
+        (key) => typeof data[key] === "number" && Number.isFinite(data[key])
       );
 
       if (!valid) {
@@ -1952,59 +2328,199 @@ document.addEventListener('DOMContentLoaded', () => {
       lastMeasurement = data;
       connectionError = false;
 
-      renderMeasurement(data);
-
-      console.log(
-        "ESP32: данные получены из Supabase",
-        data
-      );
-
+      if (!isSimulatingPhoto) {
+        renderMeasurement(data);
+      }
+      console.log("ESP32: данные успешно получены из Supabase", data);
     } catch (error) {
-
       connectionError = true;
-
-      console.error(
-        "ESP32 Supabase error:",
-        error
-      );
-
-      setStatus(
-        "● Нет связи с базой",
-        "#d97706"
-      );
-
+      console.error("ESP32 Supabase error:", error);
+      updateStationConnectionState();
     } finally {
       isLoading = false;
     }
   }
 
   // ==========================================
-  // ЗАПУСК МОНИТОРИНГА
+  // КНОПКИ УПРАВЛЕНИЯ СТАНЦИЕЙ
   // ==========================================
+  document.getElementById("esp32RefreshBtn")?.addEventListener("click", () => {
+    const btn = document.getElementById("esp32RefreshBtn");
+    btn?.classList.add("rotating");
+    loadSensorData().finally(() => {
+      setTimeout(() => btn?.classList.remove("rotating"), 600);
+      window.showToast("✓ Показания станции обновлены из Supabase!");
+    });
+  });
 
+  document.getElementById("esp32JsonToggleBtn")?.addEventListener("click", () => {
+    const box = document.getElementById("esp32JsonBox");
+    if (box) {
+      box.hidden = !box.hidden;
+    }
+  });
+
+  // Симуляция пакета (для тестирования)
+  document.getElementById("simulatePacketBtn")?.addEventListener("click", () => {
+    if (!lastMeasurement) {
+      lastMeasurement = {
+        id: 999,
+        temperature: 9.5,
+        humidity: 80,
+        pm25: 25.9,
+        pm10: 36.6,
+        created_at: new Date().toISOString()
+      };
+    }
+    const jitter = (Math.random() * 8 - 4).toFixed(1);
+    lastMeasurement.pm25 = Math.max(4, +(lastMeasurement.pm25 + parseFloat(jitter)).toFixed(1));
+    lastMeasurement.pm10 = Math.max(10, +(lastMeasurement.pm10 + parseFloat(jitter) * 1.3).toFixed(1));
+    lastMeasurement.temperature = +(lastMeasurement.temperature + (Math.random() * 1 - 0.5)).toFixed(1);
+    lastMeasurement.created_at = new Date().toISOString();
+    renderMeasurement(lastMeasurement);
+    window.showToast("✓ Симулирован тестовый пакет с датчика ESP32!");
+  });
+
+  // ------------------------------------------
+  // Переключатели тест-симуляции фото-состояний сенсора
+  // ------------------------------------------
+  function setActiveStcBtn(btnId) {
+    document.querySelectorAll(".stc-btn").forEach((b) => b.classList.remove("active"));
+    document.getElementById(btnId)?.classList.add("active");
+  }
+
+  document.getElementById("stcLiveBtn")?.addEventListener("click", () => {
+    isSimulatingPhoto = false;
+    setActiveStcBtn("stcLiveBtn");
+    if (lastMeasurement) {
+      renderMeasurement(lastMeasurement);
+    } else {
+      loadSensorData();
+    }
+    window.showToast("📡 Возврат к реальному потоку датчика ESP32");
+  });
+
+  document.getElementById("stcNormBtn")?.addEventListener("click", () => {
+    isSimulatingPhoto = true;
+    setActiveStcBtn("stcNormBtn");
+    renderMeasurement({
+      id: 991,
+      temperature: 16.5,
+      humidity: 45,
+      pm25: 8.4,
+      pm10: 18.2,
+      created_at: new Date().toISOString()
+    });
+    window.showToast("🟢 Тест: Фото-индикатор переключён на Чистую Норму (Ала-Тоо)");
+  });
+
+  document.getElementById("stcModBtn")?.addEventListener("click", () => {
+    isSimulatingPhoto = true;
+    setActiveStcBtn("stcModBtn");
+    renderMeasurement({
+      id: 992,
+      temperature: 12.0,
+      humidity: 62,
+      pm25: 32.5,
+      pm10: 56.4,
+      created_at: new Date().toISOString()
+    });
+    window.showToast("🟡 Тест: Фото-индикатор переключён на Умеренную городскую дымку");
+  });
+
+  document.getElementById("stcDangerBtn")?.addEventListener("click", () => {
+    isSimulatingPhoto = true;
+    setActiveStcBtn("stcDangerBtn");
+    renderMeasurement({
+      id: 993,
+      temperature: -3.8,
+      humidity: 84,
+      pm25: 148.5,
+      pm10: 195.0,
+      created_at: new Date().toISOString()
+    });
+    window.showToast("🔴 Тест: Фото-индикатор переключён на Опасный Зимний Смог!");
+  });
+
+  // ==========================================
+  // МОБИЛЬНОЕ МЕНЮ И ШТОРКА (DRAWER)
+  // ==========================================
+  const mobileMenuToggle = document.getElementById("mobileMenuToggle");
+  const closeMobileNavBtn = document.getElementById("closeMobileNavBtn");
+  const mobileNavDrawer = document.getElementById("mobileNavDrawer");
+  const mobileNavBackdrop = document.getElementById("mobileNavBackdrop");
+  const mobAdminBtn = document.getElementById("mobAdminBtn");
+
+  function openMobileDrawer() {
+    mobileNavDrawer?.classList.add("active");
+    mobileNavBackdrop?.classList.add("active");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeMobileDrawer() {
+    mobileNavDrawer?.classList.remove("active");
+    mobileNavBackdrop?.classList.remove("active");
+    document.body.style.overflow = "";
+  }
+
+  mobileMenuToggle?.addEventListener("click", openMobileDrawer);
+  closeMobileNavBtn?.addEventListener("click", closeMobileDrawer);
+  mobileNavBackdrop?.addEventListener("click", closeMobileDrawer);
+
+  document.querySelectorAll(".mobile-drawer-links .mob-link").forEach((link) => {
+    link.addEventListener("click", closeMobileDrawer);
+  });
+
+  mobAdminBtn?.addEventListener("click", () => {
+    closeMobileDrawer();
+    const adminModal = document.getElementById("adminModal");
+    if (adminModal) adminModal.hidden = false;
+  });
+
+  // Синхронизация нижней панели навигации при скролле
+  const bottomBarLinks = document.querySelectorAll(".mobile-bottom-bar .mob-bar-item");
+  const sections = document.querySelectorAll("section[id]");
+  window.addEventListener("scroll", () => {
+    const scrollY = window.scrollY + 160;
+    sections.forEach((sec) => {
+      const top = sec.offsetTop;
+      const height = sec.offsetHeight;
+      const id = sec.getAttribute("id");
+      if (scrollY >= top && scrollY < top + height) {
+        bottomBarLinks.forEach((link) => {
+          link.classList.toggle("active", link.dataset.target === id);
+        });
+        document.querySelectorAll(".mobile-drawer-links .mob-link").forEach((link) => {
+          link.classList.toggle("active", link.dataset.section === id);
+        });
+      }
+    });
+  });
+
+  // ==========================================
+  // СТАРТ МОНИТОРИНГА
+  // ==========================================
   function startMonitoring() {
-
-    createStationPanel();
-
     loadSensorData();
 
     setInterval(() => {
       loadSensorData();
-      updateStatus();
+      updateStationConnectionState();
     }, UPDATE_INTERVAL);
 
-    console.log(
-      "TAZA ABA: ESP32 monitoring started"
-    );
+    // Секундный таймер для относительного времени ("только что", "30 сек назад")
+    setInterval(() => {
+      if (lastMeasurement) {
+        updateTimeBadge(lastMeasurement.created_at);
+      }
+    }, 5000);
+
+    console.log("TAZA ABA: ESP32 monitoring active via Supabase");
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener(
-      "DOMContentLoaded",
-      startMonitoring
-    );
+    document.addEventListener("DOMContentLoaded", startMonitoring);
   } else {
     startMonitoring();
   }
-
 })();
