@@ -2,9 +2,10 @@
 <html lang="ru" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ТАЗА АБА — Экологическая платформа Бишкека</title>
-  <meta name="description" content="Интерактивная экологическая платформа для жителей Бишкека: мониторинг чистого воздуха (AQI, PM2.5, PM10), пункты утилизации, опасные отходы, озеленение и эко-образование." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>ТАЗА АБА — Экологическая платформа и мониторинг Бишкека</title>
+  <meta name="description" content="Интерактивная экологическая платформа Бишкека: реальные данные с датчиков ESP32 в режиме реального времени, карта качества воздуха AQI по 4 районам, пункты утилизации отходов, опасные вещества и озеленение." />
+  <meta name="theme-color" content="#080d16" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Unbounded:wght@500;600;700;800&display=swap" rel="stylesheet" />
@@ -12,12 +13,17 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Ambient Background Glows -->
-  <div class="ambient-bg" aria-hidden="true">
-    <div class="glow glow-1"></div>
-    <div class="glow glow-2"></div>
-    <div class="glow glow-3"></div>
-    <div class="grid-overlay"></div>
+  <!-- Dynamic Photographic Atmosphere Background (Day / Sunset / Night / Winter Smog) -->
+  <div class="dynamic-photo-bg" id="dynamicPhotoBg" aria-hidden="true">
+    <div class="photo-slide photo-day active" id="bgSlideDay"></div>
+    <div class="photo-slide photo-sunset" id="bgSlideSunset"></div>
+    <div class="photo-slide photo-night" id="bgSlideNight"></div>
+    <div class="photo-slide photo-smog" id="bgSlideSmog"></div>
+    <div class="photo-slide photo-rain" id="bgSlideRain"></div>
+    <div class="photo-slide photo-snow" id="bgSlideSnow"></div>
+    <div class="photo-slide photo-heat" id="bgSlideHeat"></div>
+    <div class="photo-overlay-glass"></div>
+    <div class="photo-noise-texture"></div>
   </div>
 
   <!-- Sticky Top Navigation -->
@@ -44,6 +50,7 @@
         </div>
       </a>
 
+      <!-- Desktop Nav Links -->
       <nav class="nav-links" id="navLinks">
         <a href="#air" class="nav-link active" data-section="air">
           <span class="nav-num">01</span>
@@ -71,28 +78,208 @@
         </a>
       </nav>
 
+      <!-- Action items -->
       <div class="nav-actions">
+        <!-- Live ESP32 Sensor Status Pill in Header -->
+        <a href="#esp32-live-panel" class="live-pill esp-pill" id="navEspPill" title="Перейти к показаниям живого датчика ESP32">
+          <span class="pulse-dot-green"></span>
+          <span class="mono" id="navEspText">ESP32: подключение...</span>
+        </a>
+
+        <!-- Average AQI Pill -->
         <div class="live-pill" id="headerAqiPill" title="Текущий средний индекс AQI в Бишкеке">
           <span class="pulse-dot"></span>
           <span class="mono">AQI <strong id="navAqiValue">84</strong></span>
         </div>
-        <button class="btn-icon lang-btn" id="langToggle" title="Переключить язык RU / KY">
+
+        <!-- Atmosphere Photo Background Switcher Dropdown -->
+        <div class="bg-mode-dropdown" id="bgModeDropdown">
+          <button class="bg-mode-btn" id="bgModeBtn" title="Сменить фото-фон Бишкека (День / Закат / Ночь / Смог)">
+            <span class="bg-mode-icon" id="bgModeIcon">☀️</span>
+            <span class="bg-mode-label" id="bgModeLabel">День</span>
+            <i data-lucide="chevron-down" class="chevron-mini"></i>
+          </button>
+          <div class="bg-mode-menu" id="bgModeMenu">
+            <button class="bg-option active" data-bg="auto">
+              <span class="opt-emoji">⚡</span>
+              <div class="opt-text"><strong>Авто (По времени Бишкека)</strong><small>День, закат или ночь автоматически</small></div>
+            </button>
+            <button class="bg-option" data-bg="day">
+              <span class="opt-emoji">☀️</span>
+              <div class="opt-text"><strong>Ясный день</strong><small>Хребет Ала-Тоо и солнечный город</small></div>
+            </button>
+            <button class="bg-option" data-bg="sunset">
+              <span class="opt-emoji">🌅</span>
+              <div class="opt-text"><strong>Закат над Ала-Тоо</strong><small>Золотые предгорья на закате</small></div>
+            </button>
+            <button class="bg-option" data-bg="night">
+              <span class="opt-emoji">🌙</span>
+              <div class="opt-text"><strong>Ночной Бишкек</strong><small>Огни ночной столицы</small></div>
+            </button>
+            <button class="bg-option" data-bg="smog">
+              <span class="opt-emoji">🌫️</span>
+              <div class="opt-text"><strong>Зимний смог</strong><small>Инверсионный смог над городом</small></div>
+            </button>
+            <button class="bg-option" data-bg="rain">
+              <span class="opt-emoji">🌧️</span>
+              <div class="opt-text"><strong>Дождь</strong><small>Тёмные облака и капли</small></div>
+            </button>
+            <button class="bg-option" data-bg="snow">
+              <span class="opt-emoji">❄️</span>
+              <div class="opt-text"><strong>Снег</strong><small>Белый покров и холод</small></div>
+            </button>
+            <button class="bg-option" data-bg="heat">
+              <span class="opt-emoji">🔥</span>
+              <div class="opt-text"><strong>Жара</strong><small>Солнечная жара и дымка</small></div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Language toggle -->
+        <button class="btn-icon lang-btn" id="langToggle" title="Переключить язык RU / KY" aria-label="Смена языка">
           <span id="langLabel">RU</span>
         </button>
-        <button class="btn-icon theme-btn" id="themeToggle" title="Сменить тему оформления">
+
+        <!-- Theme toggle -->
+        <button class="btn-icon theme-btn" id="themeToggle" title="Сменить тему оформления" aria-label="Смена темы">
           <i data-lucide="sun" class="icon-sun"></i>
           <i data-lucide="moon" class="icon-moon"></i>
         </button>
+
+        <!-- Admin modal open button -->
         <button class="btn-admin" id="openAdminBtn" title="Панель администратора и добавление данных">
           <i data-lucide="sliders-horizontal"></i>
           <span data-i18n="admin_btn">Админ</span>
+        </button>
+
+        <!-- Mobile Hamburger Button -->
+        <button class="btn-icon mobile-menu-btn" id="mobileMenuToggle" aria-label="Открыть мобильное меню" title="Меню">
+          <i data-lucide="menu"></i>
         </button>
       </div>
     </div>
   </header>
 
+  <!-- Mobile Drawer Backdrop & Drawer -->
+  <div class="mobile-drawer-backdrop" id="mobileNavBackdrop"></div>
+  <aside class="mobile-drawer" id="mobileNavDrawer" aria-hidden="true">
+    <div class="mobile-drawer-header">
+      <div class="brand">
+        <span class="brand-title">ТАЗА АБА</span>
+      </div>
+      <button class="btn-icon" id="closeMobileNavBtn" aria-label="Закрыть меню">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <!-- Live Telemetry Mini-Strip in Mobile Menu -->
+    <div class="mobile-esp-banner" id="mobEspBanner">
+      <div class="mob-esp-status">
+        <span class="pulse-dot-green"></span>
+        <strong id="mobEspStatusTxt">ESP32 Онлайн</strong>
+      </div>
+      <div class="mob-esp-values mono" id="mobEspValues">
+        <span>Темп: —</span> • <span>PM2.5: —</span>
+      </div>
+    </div>
+
+    <!-- Mobile Environment Atmosphere Switcher -->
+    <div class="mobile-bg-switcher">
+      <span class="mbs-label">Фон окружения Бишкека:</span>
+      <div class="mbs-pills">
+        <button class="mbs-btn active" data-bg="auto">⚡ Авто</button>
+        <button class="mbs-btn" data-bg="day">☀️ День</button>
+        <button class="mbs-btn" data-bg="sunset">🌅 Закат</button>
+        <button class="mbs-btn" data-bg="night">🌙 Ночь</button>
+        <button class="mbs-btn" data-bg="smog">🌫️ Смог</button>
+        <button class="mbs-btn" data-bg="rain">🌧️ Дождь</button>
+        <button class="mbs-btn" data-bg="snow">❄️ Снег</button>
+        <button class="mbs-btn" data-bg="heat">🔥 Жара</button>
+      </div>
+    </div>
+
+    <nav class="mobile-drawer-links">
+      <a href="#air" class="mob-link active" data-section="air">
+        <i data-lucide="wind"></i>
+        <div>
+          <strong>01. Чистый воздух &amp; Датчики</strong>
+          <span>Станция ESP32 и карта районов</span>
+        </div>
+      </a>
+      <a href="#recycling" class="mob-link" data-section="recycling">
+        <i data-lucide="recycle"></i>
+        <div>
+          <strong>02. Утилизация и сортировка</strong>
+          <span>Пункты приёма и правила сдачи</span>
+        </div>
+      </a>
+      <a href="#hazardous" class="mob-link" data-section="hazardous">
+        <i data-lucide="shield-alert"></i>
+        <div>
+          <strong>03. Опасные отходы</strong>
+          <span>Батарейки, лампы, электроника</span>
+        </div>
+      </a>
+      <a href="#greening" class="mob-link" data-section="greening">
+        <i data-lucide="trees"></i>
+        <div>
+          <strong>04. Озеленение Бишкека</strong>
+          <span>Парки, акции и заявки горожан</span>
+        </div>
+      </a>
+      <a href="#education" class="mob-link" data-section="education">
+        <i data-lucide="book-open-check"></i>
+        <div>
+          <strong>05. Эко-знания и Тест</strong>
+          <span>Статьи и проверка грамотности</span>
+        </div>
+      </a>
+      <a href="#architecture" class="mob-link" data-section="architecture">
+        <i data-lucide="cpu"></i>
+        <div>
+          <strong>⚙. О платформе и IoT</strong>
+          <span>Архитектура и открытые данные</span>
+        </div>
+      </a>
+    </nav>
+
+    <div class="mobile-drawer-footer">
+      <button class="btn btn-primary btn-full" id="mobAdminBtn">
+        <i data-lucide="plus-circle"></i>
+        <span>Добавить пункт приёма</span>
+      </button>
+      <div class="mob-copy-note">
+        «Таза Аба» • Мониторинг Бишкека • КГТУ
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile Floating Bottom Bar for One-Thumb Navigation -->
+  <nav class="mobile-bottom-bar" id="mobileBottomBar">
+    <a href="#air" class="mob-bar-item active" data-target="air">
+      <i data-lucide="wind"></i>
+      <span>Воздух</span>
+    </a>
+    <a href="#recycling" class="mob-bar-item" data-target="recycling">
+      <i data-lucide="recycle"></i>
+      <span>Вторсырьё</span>
+    </a>
+    <a href="#hazardous" class="mob-bar-item" data-target="hazardous">
+      <i data-lucide="shield-alert"></i>
+      <span>Опасные</span>
+    </a>
+    <a href="#greening" class="mob-bar-item" data-target="greening">
+      <i data-lucide="trees"></i>
+      <span>Зелень</span>
+    </a>
+    <a href="#education" class="mob-bar-item" data-target="education">
+      <i data-lucide="help-circle"></i>
+      <span>Тест</span>
+    </a>
+  </nav>
+
   <main>
-    <!-- HERO SECTION (Slides 01, 02, 03, 04) -->
+    <!-- HERO SECTION -->
     <section class="hero-section" id="hero">
       <div class="container">
         <div class="hero-top-meta">
@@ -102,38 +289,37 @@
           </div>
           <div class="status-badge">
             <span class="status-dot"></span>
-            <span data-i18n="hero_live_status">Система мониторинга активна • Бишкек, КР</span>
+            <span data-i18n="hero_live_status">Телеметрия ESP32 активна • Бишкек, Кыргызстан</span>
           </div>
         </div>
 
         <div class="hero-grid">
           <div class="hero-content">
-            <div class="eyebrow" data-i18n="hero_eyebrow">ЭКОЛОГИЧЕСКАЯ ПЛАТФОРМА ДЛЯ ЖИТЕЛЕЙ БИШКЕКА</div>
+            <div class="eyebrow" data-i18n="hero_eyebrow">ИНТЕЛЛЕКТУАЛЬНЫЙ ЭКО-МОНИТОРИНГ БИШКЕКА</div>
             <h1 class="hero-title">
               <span class="gradient-text">ТАЗА АБА</span> —<br />
               <span data-i18n="hero_title_main">чистый город начинается с данных и участия</span>
             </h1>
             <p class="hero-lead" data-i18n="hero_lead">
-              Полезная экологическая информация и проверенные адреса часто разбросаны по разным источникам. 
-              «Таза Аба» объединяет мониторинг воздуха (PM2.5 / PM10), карту районов, пункты переработки, правила сдачи опасных отходов и озеленение Бишкека в одном современном сервисе.
+              Единая платформа мониторинга чистоты городской среды Бишкека: живая телеметрия с физической станции ESP32 (температура, влажность, микрочастицы PM2.5 и пыль PM10), карта 4 районов, проверенные адреса переработки вторсырья, обезвреживание опасных отходов и зелёные инициативы столицы.
             </p>
 
             <div class="hero-tags">
-              <a href="#air" class="tag-pill"><i data-lucide="wind"></i> <span data-i18n="tag_air">Чистый воздух</span></a>
+              <a href="#air" class="tag-pill"><i data-lucide="wind"></i> <span data-i18n="tag_air">Чистый воздух &amp; Датчики</span></a>
               <a href="#recycling" class="tag-pill"><i data-lucide="recycle"></i> <span data-i18n="tag_rec">Ответственная утилизация</span></a>
               <a href="#hazardous" class="tag-pill"><i data-lucide="triangle-alert"></i> <span data-i18n="tag_haz">Опасные отходы</span></a>
-              <a href="#greening" class="tag-pill"><i data-lucide="trees"></i> <span data-i18n="tag_green">Озеленение</span></a>
-              <a href="#education" class="tag-pill"><i data-lucide="book-open-check"></i> <span data-i18n="tag_edu">Образование и тесты</span></a>
+              <a href="#greening" class="tag-pill"><i data-lucide="trees"></i> <span data-i18n="tag_green">Озеленение столицы</span></a>
+              <a href="#education" class="tag-pill"><i data-lucide="book-open-check"></i> <span data-i18n="tag_edu">Эко-тест и знания</span></a>
             </div>
 
             <div class="hero-cta-row">
               <a href="#air" class="btn btn-primary">
-                <i data-lucide="Compass"></i>
-                <span data-i18n="btn_explore_map">Открыть карту воздуха AQI</span>
+                <i data-lucide="radio"></i>
+                <span>Живая станция ESP32 и Карта AQI</span>
               </a>
               <a href="#recycling" class="btn btn-secondary">
                 <i data-lucide="map-pin"></i>
-                <span data-i18n="btn_find_points">Найти пункты приёма</span>
+                <span data-i18n="btn_find_points">Пункты приёма вторсырья</span>
               </a>
             </div>
           </div>
@@ -142,11 +328,11 @@
           <div class="hero-widget glass-card">
             <div class="widget-header">
               <div>
-                <span class="widget-label" data-i18n="widget_live_title">СВОДКА ПО БИШКЕКУ СЕЙЧАС</span>
+                <span class="widget-label" data-i18n="widget_live_title">ОБЩАЯ СВОДКА ПО БИШКЕКУ СЕЙЧАС</span>
                 <h3 class="widget-city">Бишкек • 4 района</h3>
               </div>
               <span class="data-source-badge source-real" id="heroSourceBadge">
-                <i data-lucide="radio"></i> ESP32 + OpenAQ
+                <i data-lucide="radio"></i> ESP32 IoT + OpenAQ
               </span>
             </div>
 
@@ -168,16 +354,16 @@
                 </p>
                 <div class="mini-metrics">
                   <div class="mini-metric">
-                    <span class="m-label">PM2.5</span>
-                    <span class="m-val mono" id="heroPm25">27.8 мкг/м³</span>
+                    <span class="m-label">PM2.5 (Смог)</span>
+                    <span class="m-val mono" id="heroPm25">25.9 мкг/м³</span>
                   </div>
                   <div class="mini-metric">
-                    <span class="m-label">PM10</span>
-                    <span class="m-val mono" id="heroPm10">54.2 мкг/м³</span>
+                    <span class="m-label">PM10 (Пыль)</span>
+                    <span class="m-val mono" id="heroPm10">36.6 мкг/м³</span>
                   </div>
                   <div class="mini-metric">
-                    <span class="m-label">Климат</span>
-                    <span class="m-val mono" id="heroClimate">+14.5°C • 48%</span>
+                    <span class="m-label">Климат ESP32</span>
+                    <span class="m-val mono" id="heroClimate">+9.2°C • 80%</span>
                   </div>
                 </div>
               </div>
@@ -185,117 +371,397 @@
 
             <div class="widget-footer-bar">
               <div class="wf-item">
-                <span class="wf-num mono">18+</span>
-                <span class="wf-txt">проверенных пунктов приёма</span>
+                <span class="wf-num mono">12+</span>
+                <span class="wf-txt">проверенных эко-пунктов</span>
               </div>
               <div class="wf-divider"></div>
               <div class="wf-item">
-                <span class="wf-num mono">12</span>
-                <span class="wf-txt">зелёных зон и акций посадки</span>
+                <span class="wf-num mono">4</span>
+                <span class="wf-txt">района столицы</span>
               </div>
               <div class="wf-divider"></div>
               <div class="wf-item">
-                <span class="wf-num mono">5</span>
-                <span class="wf-txt">практических модулей</span>
+                <span class="wf-num mono">15 с</span>
+                <span class="wf-txt">такт опроса датчиков</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Problem & Goal Bento Grid (Slides 02 & 03) -->
+        <!-- Problem & Goal Bento Grid -->
         <div class="concept-bento">
           <div class="bento-card problem-card">
-            <div class="bento-badge badge-amber"><i data-lucide="alert-circle"></i> Почему проект нужен Бишкеку</div>
-            <h3>Проблема разрозненности данных</h3>
-            <p>Жители сталкиваются с зимним смогом (превышение норм ВОЗ по PM2.5), не знают точных адресов сортировки вторсырья и мест сдачи опасных батареек или ртутных ламп. «Таза Аба» объединяет проверенные данные и понятные инструкции в одном окне.</p>
+            <div class="bento-badge badge-amber"><i data-lucide="alert-circle"></i> Актуальность для Бишкека</div>
+            <h3>Проблема смога и разобщённости эко-данных</h3>
+            <p>Зимой в Чуйской котловине возникает температурная инверсия: концентрация опасных частиц PM2.5 превышает нормы ВОЗ в разы. При этом жителям сложно найти проверенные адреса сдачи пластика или опасных ртутных ламп. «Таза Аба» объединяет объективную телеметрию датчиков и городскую инфраструктуру чистоты в одном месте.</p>
           </div>
           <div class="bento-card pillars-card">
             <div class="pillar-mini">
               <div class="pillar-icon icon-teal"><i data-lucide="wind"></i></div>
               <div>
-                <h4>Загрязнение воздуха</h4>
-                <p>Смог и мелкие частицы PM2.5 / PM10 влияют на дыхательную и сердечно-сосудистую систему.</p>
+                <h4>Мониторинг воздуха в реальном времени</h4>
+                <p>Физические лазерные датчики SDS011 и климат-датчики передают параметры напрямую в облачную базу.</p>
               </div>
             </div>
             <div class="pillar-mini">
               <div class="pillar-icon icon-emerald"><i data-lucide="recycle"></i></div>
               <div>
-                <h4>Отходы и утилизация</h4>
-                <p>Проверенные карточки приёма пластика, бумаги, стекла, металла и опасных отходов.</p>
+                <h4>Каталог чистой переработки</h4>
+                <p>Адреса, условия и график работы пунктов приёма пластика, картона, стекла и металла.</p>
               </div>
             </div>
             <div class="pillar-mini">
               <div class="pillar-icon icon-lime"><i data-lucide="sprout"></i></div>
               <div>
-                <h4>Городская среда и знания</h4>
-                <p>Зелёные зоны, расписание посадок деревьев, инициативы горожан и эко-грамотность.</p>
+                <h4>Зелёный каркас и гражданские инициативы</h4>
+                <p>Карта парков, расписание субботников и открытая форма подачи заявок на озеленение улиц.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 5 Platform Modules Overview Strip (Slide 04) -->
+        <!-- 5 Platform Modules Quick Strip -->
         <div class="five-modules-strip">
           <a href="#air" class="module-tile active">
             <span class="mod-index mono">01</span>
             <div class="mod-icon"><i data-lucide="activity"></i></div>
             <h4>Чистый воздух</h4>
-            <p>Интерактивная карта AQI по 4 районам</p>
+            <p>Телеметрия ESP32 &amp; Схема районов AQI</p>
           </a>
           <a href="#recycling" class="module-tile">
             <span class="mod-index mono">02</span>
             <div class="mod-icon"><i data-lucide="refresh-cw"></i></div>
             <h4>Утилизация</h4>
-            <p>Категории вторсырья и пункты приёма</p>
+            <p>Сортировка вторсырья и адреса сдачи</p>
           </a>
           <a href="#hazardous" class="module-tile">
             <span class="mod-index mono">03</span>
             <div class="mod-icon"><i data-lucide="shield-alert"></i></div>
             <h4>Опасные вещества</h4>
-            <p>Инструкции, риски и спецпункты</p>
+            <p>Батарейки, лампы и безопасная утилизация</p>
           </a>
           <a href="#greening" class="module-tile">
             <span class="mod-index mono">04</span>
             <div class="mod-icon"><i data-lucide="tree-pine"></i></div>
             <h4>Озеленение</h4>
-            <p>Зелёные зоны, акции и заявки жителей</p>
+            <p>Парки, акции и заявки жителей</p>
           </a>
           <a href="#education" class="module-tile">
             <span class="mod-index mono">05</span>
             <div class="mod-icon"><i data-lucide="graduation-cap"></i></div>
             <h4>Образование</h4>
-            <p>Эко-библиотека, факты и интерактивный тест</p>
+            <p>Эко-библиотека и интерактивный тест</p>
           </a>
         </div>
       </div>
     </section>
 
     <!-- =====================================================================
-         SECTION 01: ЧИСТЫЙ ВОЗДУХ (Slides 05 & 06)
+         SECTION 01: ЧИСТЫЙ ВОЗДУХ & СТАНЦИЯ ESP32
          ===================================================================== -->
     <section class="section" id="air">
       <div class="container">
         <div class="section-header">
           <div class="sec-title-group">
-            <span class="sec-num mono">РАЗДЕЛ 01 // ГЛАВНЫЙ ИНТЕРАКТИВНЫЙ МОДУЛЬ</span>
-            <h2 class="sec-title">Чистый воздух и схема районов Бишкека</h2>
-            <p class="sec-desc">Выберите административный район на интерактивной схеме, переключайте источник данных (Реальные со станции ESP32, Открытые или Расчётные) и изучайте прогноз на 1–3 дня.</p>
+            <span class="sec-num mono">РАЗДЕЛ 01 // ЭКОЛОГИЧЕСКИЙ IoT-МОНИТОРИНГ</span>
+            <h2 class="sec-title">Качество воздуха и телеметрия в Бишкеке</h2>
+            <p class="sec-desc">Живые данные с физического датчика ESP32 через облако Supabase, интерактивная схема 4 административных районов города и прогноз качества воздуха на 1–3 дня.</p>
           </div>
 
-          <!-- Scenario / Season Switcher & Data Source Filter -->
+          <!-- Scenario / Season Switcher -->
           <div class="air-controls">
             <div class="control-group">
-              <span class="ctrl-label">Режим симуляции сезона:</span>
+              <span class="ctrl-label">Сценарий моделирования:</span>
               <div class="segmented-control" id="seasonSwitch">
                 <button class="seg-btn active" data-season="current">Весна / Осень (Сейчас)</button>
-                <button class="seg-btn" data-season="summer">Лето (Чистый воздух)</button>
-                <button class="seg-btn" data-season="winter">Зима (Отопительный смог)</button>
+                <button class="seg-btn" data-season="summer">Лето (Чисто)</button>
+                <button class="seg-btn" data-season="winter">Зима (Смог)</button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Main Interactive Air Dashboard -->
+        <!-- =====================================================================
+             FLAGSHIP LIVE ESP32 IoT TELEMETRY COMMAND CENTER
+             ===================================================================== -->
+        <div class="esp32-station-hero glass-card" id="esp32-live-panel">
+          <div class="esp-top-header">
+            <div class="esp-identity">
+              <div class="esp-live-badge">
+                <span class="live-beacon"></span>
+                <span id="esp32-status" class="mono">● Подключение к Supabase...</span>
+              </div>
+              <div class="esp-title-wrap">
+                <h3 class="esp-hero-heading">📡 Физическая станция мониторинга ESP32</h3>
+                <p class="esp-sub-meta">Лазерный сенсор пыли SDS011 + Климатический датчик DHT11/22 • Прямой шлюз через Supabase REST</p>
+              </div>
+            </div>
+            <div class="esp-actions-top">
+              <div class="esp-updated-chip mono" id="esp32-updated">
+                <i data-lucide="clock"></i> <span>Синхронизация...</span>
+              </div>
+              <button class="btn-icon btn-sm" id="esp32RefreshBtn" title="Обновить показания сейчас">
+                <i data-lucide="rotate-cw"></i>
+              </button>
+              <button class="btn btn-outline btn-sm" id="esp32JsonToggleBtn" title="Посмотреть сырой JSON с датчика">
+                <i data-lucide="code-2"></i> <span>JSON-пакет</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Photographic Atmosphere & Sensor Indicator Banner -->
+          <div class="esp-photo-indicator-banner" id="espPhotoBanner">
+            <div class="banner-photo-layer photo-clean active" id="bannerPhotoClean" style="background-image: url('images/sensor_clean.jpg');"></div>
+            <div class="banner-photo-layer photo-mod" id="bannerPhotoMod" style="background-image: url('images/sensor_mod.jpg');"></div>
+            <div class="banner-photo-layer photo-danger" id="bannerPhotoDanger" style="background-image: url('images/sensor_danger.jpg');"></div>
+            <div class="banner-photo-overlay"></div>
+            
+            <div class="banner-content">
+              <div class="banner-left">
+                <div class="banner-status-tag" id="bannerStatusTag">
+                  <span class="status-indicator-dot"></span>
+                  <span id="bannerStatusTitle">НОРМА ВОЗ • ЧИСТЫЙ ВОЗДУХ</span>
+                </div>
+                <h4 class="banner-headline" id="bannerHeadline">Атмосферный фон в пределах безопасной нормы</h4>
+                <p class="banner-desc" id="bannerDesc">Показания PM2.5 соответствуют стандартам Всемирной организации здравоохранения. Проветривание и спорт на открытом воздухе полностью безопасны.</p>
+              </div>
+
+              <div class="banner-right">
+                <div class="sensor-test-controls">
+                  <span class="stc-title">Фото-индикатор датчиков:</span>
+                  <div class="stc-buttons">
+                    <button class="stc-btn active" id="stcLiveBtn" title="Реальные показания с датчика ESP32">
+                      <span class="pulse-dot-green"></span> Live ESP32
+                    </button>
+                    <button class="stc-btn" id="stcNormBtn" title="Тест: Идеальная норма ВОЗ">
+                      🟢 Норма
+                    </button>
+                    <button class="stc-btn" id="stcModBtn" title="Тест: Умеренная городская дымка">
+                      🟡 Умеренно
+                    </button>
+                    <button class="stc-btn" id="stcDangerBtn" title="Тест: Опасный зимний смог">
+                      🔴 Смог (ЧС)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Telemetry 4 Gauge Cards Grid -->
+          <div class="esp-telemetry-grid">
+            
+            <!-- 1. ТЕМПЕРАТУРА (TEMPERATURE) -->
+            <div class="esp-gauge-card temp-gauge-card" id="espTempCard">
+              <div class="eg-header">
+                <div class="eg-icon-wrap icon-temp"><i data-lucide="thermometer"></i></div>
+                <div>
+                  <span class="eg-label">ТЕМПЕРАТУРА ВОЗДУХА</span>
+                  <span class="eg-sensor mono">DHT11 / DHT22</span>
+                </div>
+              </div>
+              <div class="eg-val-row">
+                <span class="eg-val mono" id="esp32-temperature">—</span>
+                <span class="eg-badge badge-temp" id="esp32-temp-badge">Определение...</span>
+              </div>
+
+              <!-- Temperature Scale Bar: Cold to Hot -->
+              <div class="gauge-scale-box">
+                <div class="scale-labels">
+                  <span class="sc-c1">❄️ Мороз</span>
+                  <span class="sc-c2">Прохладно</span>
+                  <span class="sc-c3">Комфорт (18-24°)</span>
+                  <span class="sc-c4">🔥 Жара (&gt;30°)</span>
+                </div>
+                <div class="gauge-track temp-track">
+                  <div class="gauge-needle" id="esp32-temp-needle" style="left: 45%;">
+                    <span class="needle-indicator"></span>
+                  </div>
+                </div>
+                <div class="scale-ticks mono">
+                  <span>-10°</span>
+                  <span>0°</span>
+                  <span>+15°</span>
+                  <span>+25°</span>
+                  <span>+40°</span>
+                </div>
+              </div>
+              <p class="eg-hint" id="esp32-temp-hint">Оценка комфорта наружного воздуха</p>
+            </div>
+
+            <!-- 2. ВЛАЖНОСТЬ (HUMIDITY) -->
+            <div class="esp-gauge-card hum-gauge-card" id="espHumCard">
+              <div class="eg-header">
+                <div class="eg-icon-wrap icon-hum"><i data-lucide="droplets"></i></div>
+                <div>
+                  <span class="eg-label">ВЛАЖНОСТЬ ВОЗДУХА</span>
+                  <span class="eg-sensor mono">Относительная (RH %)</span>
+                </div>
+              </div>
+              <div class="eg-val-row">
+                <span class="eg-val mono" id="esp32-humidity">—</span>
+                <span class="eg-badge badge-hum" id="esp32-hum-badge">Определение...</span>
+              </div>
+
+              <!-- Humidity Scale Bar: Dry to Wet -->
+              <div class="gauge-scale-box">
+                <div class="scale-labels">
+                  <span class="sc-h1">🏜️ Сухо (&lt;30%)</span>
+                  <span class="sc-h2">🌿 Оптимально (30-60%)</span>
+                  <span class="sc-h3">💧 Повышено</span>
+                  <span class="sc-h4">🌫️ Сырость</span>
+                </div>
+                <div class="gauge-track hum-track">
+                  <div class="gauge-needle" id="esp32-hum-needle" style="left: 80%;">
+                    <span class="needle-indicator"></span>
+                  </div>
+                </div>
+                <div class="scale-ticks mono">
+                  <span>0%</span>
+                  <span>30%</span>
+                  <span>50%</span>
+                  <span>70%</span>
+                  <span>100%</span>
+                </div>
+              </div>
+              <p class="eg-hint" id="esp32-hum-hint">Влияет на дисперсию оптического лазера</p>
+            </div>
+
+            <!-- 3. PM2.5 (FINE PARTICLES & WHO NORM) -->
+            <div class="esp-gauge-card pm25-gauge-card highlight-card" id="espPm25Card">
+              <div class="card-photo-backdrop" id="pm25PhotoBackdrop">
+                <div class="card-photo-img cpi-clean active" id="cpiClean" style="background-image: url('images/sensor_clean.jpg');"></div>
+                <div class="card-photo-img cpi-mod" id="cpiMod" style="background-image: url('images/sensor_mod.jpg');"></div>
+                <div class="card-photo-img cpi-danger" id="cpiDanger" style="background-image: url('images/sensor_danger.jpg');"></div>
+                <div class="card-photo-tint"></div>
+              </div>
+              <div class="eg-header">
+                <div class="eg-icon-wrap icon-pm25"><i data-lucide="sparkles"></i></div>
+                <div>
+                  <div class="eg-label-flex">
+                    <span class="eg-label">ЧАСТИЦЫ PM2.5 (ОСНОВНОЙ СМОГ)</span>
+                    <span class="who-norm-tag">НОРМА ВОЗ: 15 мкг/м³</span>
+                  </div>
+                  <span class="eg-sensor mono">Лазерный канал SDS011</span>
+                </div>
+              </div>
+              <div class="eg-val-row">
+                <div class="val-with-unit">
+                  <span class="eg-val mono" id="esp32-pm25">—</span>
+                  <span class="eg-unit">мкг/м³</span>
+                </div>
+                <span class="eg-badge badge-pm25" id="esp32-pm25-badge">Загрузка...</span>
+              </div>
+
+              <!-- Norm Comparison Pill -->
+              <div class="norm-status-pill" id="esp32-pm25-norm-box">
+                <span class="nsp-label">Соотношение с нормой:</span>
+                <strong id="esp32-pm25-ratio" class="mono">Определение...</strong>
+              </div>
+
+              <!-- PM2.5 Danger Scale Bar -->
+              <div class="gauge-scale-box">
+                <div class="scale-labels">
+                  <span class="sc-safe">В норме (0–15)</span>
+                  <span class="sc-mod">Умеренно</span>
+                  <span class="sc-warn">Повышено</span>
+                  <span class="sc-danger">ОПАСНО (75+)</span>
+                  <span class="sc-haz">ЧС (150+)</span>
+                </div>
+                <div class="gauge-track pm25-track">
+                  <div class="norm-vertical-line" style="left: 12%;" title="Порог безопасной суточной нормы ВОЗ: 15 мкг/м³">
+                    <span class="norm-marker-txt">НОРМА ВОЗ (15)</span>
+                  </div>
+                  <div class="gauge-needle" id="esp32-pm25-needle" style="left: 18%;">
+                    <span class="needle-indicator danger-indicator"></span>
+                  </div>
+                </div>
+                <div class="scale-ticks mono">
+                  <span>0</span>
+                  <span class="tick-who">15</span>
+                  <span>35</span>
+                  <span>55</span>
+                  <span>75</span>
+                  <span>150+</span>
+                </div>
+              </div>
+              <p class="eg-hint" id="esp32-pm25-hint">Анализ качества воздуха на основе рекомендаций ВОЗ</p>
+            </div>
+
+            <!-- 4. PM10 (COARSE PARTICLES & DUST) -->
+            <div class="esp-gauge-card pm10-gauge-card" id="espPm10Card">
+              <div class="eg-header">
+                <div class="eg-icon-wrap icon-pm10"><i data-lucide="wind"></i></div>
+                <div>
+                  <div class="eg-label-flex">
+                    <span class="eg-label">ЧАСТИЦЫ PM10 (ДОРОЖНАЯ ПЫЛЬ)</span>
+                    <span class="who-norm-tag">НОРМА ВОЗ: 45 мкг/м³</span>
+                  </div>
+                  <span class="eg-sensor mono">Лазерный канал SDS011</span>
+                </div>
+              </div>
+              <div class="eg-val-row">
+                <div class="val-with-unit">
+                  <span class="eg-val mono" id="esp32-pm10">—</span>
+                  <span class="eg-unit">мкг/м³</span>
+                </div>
+                <span class="eg-badge badge-pm10" id="esp32-pm10-badge">Загрузка...</span>
+              </div>
+
+              <!-- PM10 Scale Bar -->
+              <div class="gauge-scale-box">
+                <div class="scale-labels">
+                  <span class="sc-safe">В норме (&lt;45)</span>
+                  <span class="sc-mod">Умеренно</span>
+                  <span class="sc-danger">Запылённость (&gt;100)</span>
+                </div>
+                <div class="gauge-track pm10-track">
+                  <div class="norm-vertical-line" style="left: 22.5%;" title="Норма ВОЗ: 45 мкг/м³">
+                    <span class="norm-marker-txt">НОРМА ВОЗ (45)</span>
+                  </div>
+                  <div class="gauge-needle" id="esp32-pm10-needle" style="left: 20%;">
+                    <span class="needle-indicator"></span>
+                  </div>
+                </div>
+                <div class="scale-ticks mono">
+                  <span>0</span>
+                  <span class="tick-who">45</span>
+                  <span>100</span>
+                  <span>150</span>
+                  <span>200+</span>
+                </div>
+              </div>
+              <p class="eg-hint" id="esp32-pm10-hint">Минеральная пыль, выхлопной аэрозоль и частицы износа шин</p>
+            </div>
+
+          </div>
+
+          <!-- Real-time verdict & Diagnostic Footer -->
+          <div class="esp-summary-bar">
+            <div class="esb-left">
+              <div class="esb-aqi-pill" id="esp32-aqi-pill">
+                <span class="esb-aqi-title">РАСЧЁТНЫЙ ИНДЕКС СТАНЦИИ:</span>
+                <span class="esb-aqi-num mono" id="esp32-aqi-val">AQI —</span>
+                <span class="esb-aqi-lvl" id="esp32-aqi-lvl">Оценка</span>
+              </div>
+              <p class="esb-advice" id="esp32-aqi-advice">Получение данных со станции ESP32...</p>
+            </div>
+            <div class="esb-right">
+              <span class="gateway-badge mono"><i data-lucide="database"></i> Supabase REST: live</span>
+            </div>
+          </div>
+
+          <!-- Raw JSON Payload Dropdown (Collapsible) -->
+          <div class="esp-raw-json-panel" id="esp32JsonBox" hidden>
+            <div class="term-bar">
+              <span class="term-dots"><i></i><i></i><i></i></span>
+              <span class="mono">REST GET /sensor_data?order=created_at.desc&amp;limit=1</span>
+            </div>
+            <pre class="mono" id="esp32JsonContent">Загрузка данных...</pre>
+          </div>
+        </div>
+
+        <!-- Main Interactive Air Dashboard (Districts Map & Details) -->
         <div class="air-dashboard">
           <!-- Left: Interactive SVG District Map of Bishkek -->
           <div class="map-panel glass-card">
@@ -519,7 +985,7 @@
               </div>
             </div>
 
-            <!-- 1-3 Day Forecast (Slide 05 Requirement) -->
+            <!-- 1-3 Day Forecast -->
             <div class="forecast-block">
               <div class="forecast-header">
                 <h4><i data-lucide="calendar-clock"></i> Краткий прогноз качества воздуха на 1–3 дня</h4>
@@ -532,13 +998,13 @@
           </div>
         </div>
 
-        <!-- Slide 06: Hardware & IoT Monitoring Foundation -->
+        <!-- Hardware & IoT Monitoring Foundation Showcase -->
         <div class="hardware-showcase glass-card">
           <div class="hw-header">
             <div>
-              <span class="panel-tag">ТЕХНИЧЕСКАЯ ОСНОВА МОНИТОРИНГА (СЛАЙД 06)</span>
+              <span class="panel-tag">ИНЖЕНЕРНАЯ ОСНОВА МОНИТОРИНГА</span>
               <h3>Аппаратная станция «Таза Аба» и тракт передачи данных</h3>
-              <p>Для первой версии платформы используются 1–2 собственные станции на базе микроконтроллера ESP32 и доступные открытые данные (OpenAQ, Кыргызгидромет, Open-Meteo).</p>
+              <p>Для первой версии платформы используются собственные станции на базе микроконтроллера ESP32 и доступные открытые данные (OpenAQ, Кыргызгидромет, Open-Meteo).</p>
             </div>
             <button class="btn btn-outline btn-sm" id="simulatePacketBtn">
               <i data-lucide="cpu"></i> Симулировать пакет с датчика ESP32
@@ -585,35 +1051,35 @@
                 <span class="pipe-num mono">01</span>
                 <i data-lucide="radio-receiver"></i>
                 <strong>Датчики</strong>
-                <span>Сбор показаний PM и климата</span>
+                <span>Сбор PM и климата</span>
               </div>
               <div class="pipe-arrow">→</div>
               <div class="pipe-step">
                 <span class="pipe-num mono">02</span>
                 <i data-lucide="wifi"></i>
-                <strong>Wi-Fi (ESP32)</strong>
-                <span>Передача HTTP POST (JSON)</span>
+                <strong>ESP32 (Wi-Fi)</strong>
+                <span>Шлюз HTTPS / REST</span>
               </div>
               <div class="pipe-arrow">→</div>
               <div class="pipe-step">
                 <span class="pipe-num mono">03</span>
                 <i data-lucide="database"></i>
-                <strong>Сервер и база</strong>
-                <span>Хранение, калибровка и AQI</span>
+                <strong>База Supabase</strong>
+                <span>PostgreSQL &amp; Хранилище</span>
               </div>
               <div class="pipe-arrow">→</div>
               <div class="pipe-step">
                 <span class="pipe-num mono">04</span>
                 <i data-lucide="layout-dashboard"></i>
                 <strong>Сайт «Таза Аба»</strong>
-                <span>Карта, графики и советы</span>
+                <span>Шкалы, графики, карта</span>
               </div>
             </div>
 
             <div class="json-terminal">
               <div class="term-bar">
                 <span class="term-dots"><i></i><i></i><i></i></span>
-                <span class="mono">POST /api/v1/telemetry • bishkek-station-01</span>
+                <span class="mono">POST /rest/v1/sensor_data • bishkek-kstu-01</span>
               </div>
               <pre class="mono" id="liveJsonPayload">{
   "station_id": "bishkek-kstu-01",
@@ -625,7 +1091,7 @@
   "humidity_pct": 51.0,
   "pressure_mmhg": 694,
   "calculated_aqi": 86,
-  "timestamp": "2026-11-05T11:45:00+06:00"
+  "timestamp": "2026-11-05T22:30:00+06:00"
 }</pre>
             </div>
           </div>
@@ -634,50 +1100,50 @@
     </section>
 
     <!-- =====================================================================
-         SECTION 02: УТИЛИЗАЦИЯ (Slide 07)
+         SECTION 02: УТИЛИЗАЦИЯ И СОРТИРОВКА (Чистота города)
          ===================================================================== -->
     <section class="section" id="recycling">
       <div class="container">
         <div class="section-header">
           <div class="sec-title-group">
-            <span class="sec-num mono">РАЗДЕЛ 02 // КАТАЛОГ ОБЫЧНЫХ ОТХОДОВ И ПУНКТОВ ПРИЁМА</span>
-            <h2 class="sec-title">Сортировка отходов и пункты приёма в Бишкеке</h2>
-            <p class="sec-desc">Выберите категорию вторсырья (пластик, бумага, стекло или металл), чтобы открыть проверенные адресные карточки с графиком работы, контактами и условиями приёма — удобно и без перегруженных карт.</p>
+            <span class="sec-num mono">РАЗДЕЛ 02 // ЧИСТОТА ГОРОДА И ПЕРЕРАБОТКА</span>
+            <h2 class="sec-title">Каталог вторсырья и пунктов приёма в Бишкеке</h2>
+            <p class="sec-desc">Выберите категорию вторичного сырья, чтобы посмотреть проверенные пункты сдачи с графиком работы, точным адресом, контактами и возможностью открыть точку в 2GIS.</p>
           </div>
         </div>
 
-        <!-- 4 Material Category Selector Cards (Slide 07) -->
+        <!-- 4 Material Category Selector Cards -->
         <div class="recycling-categories" id="recyclingCategoryTabs">
           <button class="rec-cat-card active" data-cat="all">
             <div class="rc-icon">↻</div>
             <div class="rc-info">
               <h4>Все категории</h4>
-              <span>Полный каталог (12 пунктов)</span>
+              <span>Полный каталог (12 проверенных точек)</span>
             </div>
           </button>
           <button class="rec-cat-card" data-cat="plastic">
-            <div class="rc-icon">↻</div>
+            <div class="rc-icon">♻️</div>
             <div class="rc-info">
               <h4>ПЛАСТИК</h4>
               <span>PET-бутылки, крышечки, канистры HDPE, плёнка</span>
             </div>
           </button>
           <button class="rec-cat-card" data-cat="paper">
-            <div class="rc-icon">↻</div>
+            <div class="rc-icon">📦</div>
             <div class="rc-info">
               <h4>БУМАГА</h4>
               <span>Макулатура, картон, офисная бумага, книги</span>
             </div>
           </button>
           <button class="rec-cat-card" data-cat="glass">
-            <div class="rc-icon">↻</div>
+            <div class="rc-icon">🍾</div>
             <div class="rc-info">
               <h4>СТЕКЛО</h4>
               <span>Прозрачное и цветное тарное стекло, банки</span>
             </div>
           </button>
           <button class="rec-cat-card" data-cat="metal">
-            <div class="rc-icon">↻</div>
+            <div class="rc-icon">🥫</div>
             <div class="rc-info">
               <h4>МЕТАЛЛ</h4>
               <span>Алюминиевые банки, жесть, бытовой лом</span>
@@ -689,11 +1155,11 @@
         <div class="catalog-toolbar glass-card">
           <div class="search-input-wrap">
             <i data-lucide="search"></i>
-            <input type="text" id="recyclingSearchInput" placeholder="Поиск по адресу, названию пункта или району (например: Ахунбаева, Первомайский)..." />
+            <input type="text" id="recyclingSearchInput" placeholder="Поиск по адресу, названию пункта или улице (например: Ахунбаева, Манаса, Киевская)..." />
           </div>
           <div class="toolbar-filters">
-            <select id="recyclingDistrictFilter" class="select-input">
-              <option value="all">Все районы Бишкека</option>
+            <select id="recyclingDistrictFilter" class="select-input" aria-label="Фильтр по району">
+              <option value="all">Все 4 района Бишкека</option>
               <option value="Первомайский">Первомайский район</option>
               <option value="Октябрьский">Октябрьский район</option>
               <option value="Ленинский">Ленинский район</option>
@@ -712,7 +1178,7 @@
           </div>
         </div>
 
-        <!-- Address Cards Grid (No separate giant map, strictly following Slide 07 format) -->
+        <!-- Address Cards Grid -->
         <div class="address-cards-grid" id="recyclingCardsGrid">
           <!-- Populated dynamically by app.js -->
         </div>
@@ -720,50 +1186,50 @@
     </section>
 
     <!-- =====================================================================
-         SECTION 03: ОПАСНЫЕ ВЕЩЕСТВА (Slide 08)
+         SECTION 03: ОПАСНЫЕ ВЕЩЕСТВА И БЕЗОПАСНОСТЬ
          ===================================================================== -->
     <section class="section" id="hazardous">
       <div class="container">
         <div class="section-header">
           <div class="sec-title-group">
             <span class="sec-num mono hazard-accent">РАЗДЕЛ 03 // СПЕЦИАЛЬНОЕ ОБРАЩЕНИЕ И БЕЗОПАСНОСТЬ</span>
-            <h2 class="sec-title">Опасные отходы: почему нельзя выбрасывать в обычный бак</h2>
-            <p class="sec-desc">Отдельный справочник для батареек, ртутных ламп, электроники и просроченных лекарств. Для каждой категории приведено краткое объяснение риска, правила домашнего хранения и подтверждённые специальные пункты сдачи в Бишкеке.</p>
+            <h2 class="sec-title">Опасные отходы: почему нельзя бросать в мусор</h2>
+            <p class="sec-desc">Батарейки, ртутные лампы, электроника и просроченные лекарства содержат тяжёлые металлы и токсины. Узнайте степень экологического риска, правила домашнего хранения и подтверждённые пункты приёма в Бишкеке.</p>
           </div>
           <div class="hazard-warning-pill">
             <i data-lucide="shield-alert"></i>
-            <span>СДАВАТЬ ТОЛЬКО В СПЕЦИАЛЬНЫЕ ПУНКТЫ</span>
+            <span>СПЕЦИАЛЬНАЯ ДЕМЕРКУРИЗАЦИЯ И УТИЛИЗАЦИЯ</span>
           </div>
         </div>
 
-        <!-- 4 Hazardous Category Tabs (Slide 08) -->
+        <!-- 4 Hazardous Category Tabs -->
         <div class="hazard-tabs" id="hazardTabs">
           <button class="hazard-tab active" data-hazard="batteries">
             <i data-lucide="battery-warning"></i>
             <div>
               <strong>Батарейки и аккумуляторы</strong>
-              <span>Тяжёлые металлы и щёлочи</span>
+              <span>Тяжёлые металлы и щёлочи (Класс 2)</span>
             </div>
           </button>
           <button class="hazard-tab" data-hazard="lamps">
             <i data-lucide="lightbulb-off"></i>
             <div>
-              <strong>Лампочки</strong>
-              <span>Ртутные, люминесцентные и LED</span>
+              <strong>Лампочки и ртуть</strong>
+              <span>Пары ртути (Класс опасности 1)</span>
             </div>
           </button>
           <button class="hazard-tab" data-hazard="electronics">
             <i data-lucide="smartphone-charging"></i>
             <div>
-              <strong>Электроника</strong>
-              <span>Телефоны, техника и платы</span>
+              <strong>Электроника (E-Waste)</strong>
+              <span>Телефоны, платы, техника</span>
             </div>
           </button>
           <button class="hazard-tab" data-hazard="medicines">
             <i data-lucide="pill"></i>
             <div>
               <strong>Просроченные лекарства</strong>
-              <span>Блистеры, сиропы и термометры</span>
+              <span>Антибиотики и термометры</span>
             </div>
           </button>
         </div>
@@ -776,15 +1242,15 @@
     </section>
 
     <!-- =====================================================================
-         SECTION 04: ОЗЕЛЕНЕНИЕ (Slide 09)
+         SECTION 04: ОЗЕЛЕНЕНИЕ И ИНИЦИАТИВЫ ГОРОЖАН
          ===================================================================== -->
     <section class="section" id="greening">
       <div class="container">
         <div class="section-header">
           <div class="sec-title-group">
-            <span class="sec-num mono">РАЗДЕЛ 04 // ЗЕЛЁНЫЙ ГОРОД И УЧАСТИЕ ЖИТЕЛЕЙ</span>
-            <h2 class="sec-title">Озеленение: парки, посадка деревьев и инициативы горожан</h2>
-            <p class="sec-desc">Каталог зелёных пространств Бишкека, календарь ближайших субботников и акций по посадке деревьев, а также интерактивная форма, где каждый житель может предложить двор или улицу, где не хватает зелени.</p>
+            <span class="sec-num mono">РАЗДЕЛ 04 // ЗЕЛЁНЫЙ КАРКАС СТОЛИЦЫ</span>
+            <h2 class="sec-title">Озеленение: парки, посадки и инициативы жителей</h2>
+            <p class="sec-desc">Каталог зелёных пространств Бишкека, график ближайших субботников и акций по посадке деревьев, а также форма с расчётом экологического эффекта, где каждый житель может предложить участок для посадки деревьев.</p>
           </div>
         </div>
 
@@ -797,17 +1263,17 @@
         </div>
 
         <div class="greening-layout">
-          <!-- Left: Catalog of Parks, Tree Planting Events & Citizen Proposals -->
+          <!-- Left: Catalog of Parks, Planting Events & Citizen Proposals -->
           <div class="green-catalog-grid" id="greenCatalogGrid">
             <!-- Populated dynamically by app.js -->
           </div>
 
-          <!-- Right: Interactive Form to Propose a Tree Planting Location (Slide 09) -->
+          <!-- Right: Interactive Form to Propose a Tree Planting Location -->
           <aside class="green-form-card glass-card">
             <div class="gf-header">
               <span class="panel-tag">УЧАСТИЕ ГОРОЖАН</span>
-              <h3>Предложить территорию для озеленения</h3>
-              <p>Знаете участок вдоль дороги, школу или двор в Бишкеке, где высохли деревья или нужна тень? Оставьте заявку — она сразу появится в открытом списке инициатив.</p>
+              <h3>Предложить территорию для посадки деревьев</h3>
+              <p>Знаете двор, сквер или улицу в Бишкеке, где не хватает тени или высохли деревья? Оставьте заявку — она сразу появится в открытом списке с возможностью голосования.</p>
             </div>
 
             <form id="proposeTreeForm" class="eco-form">
@@ -830,31 +1296,39 @@
                 <div class="form-group">
                   <label for="propTreeType">Желаемые породы</label>
                   <select id="propTreeType" class="form-control">
-                    <option value="Карагач / Вяз и Клён">Карагач и Клён (тень)</option>
-                    <option value="Дуб черешчатый и Ясень">Дуб и Ясень</option>
+                    <option value="Карагач / Вяз и Клён">Карагач и Клён (густая тень)</option>
+                    <option value="Дуб черешчатый и Ясень">Дуб и Ясень (долговечность)</option>
                     <option value="Берёза и Сосна крымская">Берёза и Хвойные</option>
                     <option value="Кустарники (живая изгородь)">Живая изгородь от пыли</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="propCount">Оценка саженцев</label>
+                  <label for="propCount">Количество саженцев</label>
                   <input type="number" id="propCount" min="1" max="500" value="15" class="form-control" />
+                </div>
+              </div>
+
+              <!-- Real-time CO2 / Oxygen Impact Calculator -->
+              <div class="tree-calc-banner" id="treeCalcBanner">
+                <div class="tcb-icon">🌱</div>
+                <div class="tcb-text" id="treeCalcText">
+                  <strong>15 саженцев:</strong> поглотят ~330 кг CO2 в год, задержат до 450 кг пыли и обеспечат кислородом 30 человек.
                 </div>
               </div>
 
               <div class="form-group">
                 <label for="propReason">Почему здесь нужно озеленение? *</label>
-                <textarea id="propReason" rows="3" required class="form-control" placeholder="Опишите ситуацию: пыль от дороги, открытый солнцепёк, наличие арыка или поливной воды..."></textarea>
+                <textarea id="propReason" rows="3" required class="form-control" placeholder="Опишите ситуацию: пыль от дороги, солнцепёк, наличие арыка для полива..."></textarea>
               </div>
 
               <div class="form-group">
-                <label for="propAuthor">Ваше имя или студенческая группа</label>
+                <label for="propAuthor">Ваше имя или сообщество жителей</label>
                 <input type="text" id="propAuthor" class="form-control" placeholder="Например: Азамат (житель мкр Джал)" />
               </div>
 
               <button type="submit" class="btn btn-primary btn-full">
                 <i data-lucide="sprout"></i>
-                <span>Отправить предложение на платформу</span>
+                <span>Опубликовать заявку на платформе</span>
               </button>
               <div class="form-feedback" id="propFormFeedback" hidden></div>
             </form>
@@ -864,25 +1338,25 @@
     </section>
 
     <!-- =====================================================================
-         SECTION 05: ОБРАЗОВАТЕЛЬНЫЙ КОНТЕНТ (Slide 10)
+         SECTION 05: ЭКО-ОБРАЗОВАНИЕ И ТЕСТ
          ===================================================================== -->
     <section class="section" id="education">
       <div class="container">
         <div class="section-header">
           <div class="sec-title-group">
-            <span class="sec-num mono">РАЗДЕЛ 05 // ЗНАНИЯ • ФАКТЫ • ПРАКТИЧЕСКИЕ СОВЕТЫ • ТЕСТЫ</span>
+            <span class="sec-num mono">РАЗДЕЛ 05 // ЗНАНИЯ • ПРАКТИЧЕСКИЕ СОВЕТЫ • ТЕСТ</span>
             <h2 class="sec-title">Экологическая библиотека и проверка знаний</h2>
             <p class="sec-desc">Короткие научно-популярные статьи по 4 ключевым темам, проверенные факты об экологии Бишкека и интерактивный тест на экологическую грамотность.</p>
           </div>
         </div>
 
         <div class="education-layout">
-          <!-- Left: 4 Structured Educational Articles + Practical Tips (Slide 10) -->
+          <!-- Left: 4 Structured Educational Articles + Practical Tips -->
           <div class="edu-library">
             <div class="edu-topic-tabs" id="eduTopicTabs">
-              <button class="edu-tab active" data-topic="air">01. Чистый воздух и PM2.5</button>
-              <button class="edu-tab" data-topic="recycling">02. Сортировка и переработка</button>
-              <button class="edu-tab" data-topic="hazardous">03. Опасные отходы</button>
+              <button class="edu-tab active" data-topic="air">01. Воздух и PM2.5</button>
+              <button class="edu-tab" data-topic="recycling">02. Сортировка отходов</button>
+              <button class="edu-tab" data-topic="hazardous">03. Опасные вещества</button>
               <button class="edu-tab" data-topic="greening">04. Деревья и микроклимат</button>
             </div>
 
@@ -890,27 +1364,27 @@
               <!-- Populated dynamically by app.js -->
             </article>
 
-            <!-- Interesting Eco Facts Carousel / Grid -->
+            <!-- Interesting Eco Facts Strip -->
             <div class="eco-facts-strip">
               <div class="fact-item glass-card">
-                <span class="fact-tag mono">ФАКТ #01 • МИКРОЧАСТИЦЫ</span>
-                <p>Частица <strong>PM2.5</strong> имеет диаметр менее 2.5 микрометра — это в <strong>30 раз тоньше</strong> человеческого волоса, поэтому она легко проникает сквозь обычные тканевые маски.</p>
+                <span class="fact-tag mono">ФАКТ #01 • МИКРОЧАСТИЦЫ PM2.5</span>
+                <p>Частица <strong>PM2.5</strong> имеет диаметр менее 2.5 микрометра — это в <strong>30 раз тоньше</strong> волоса человека. Она проникает сквозь обычные тканевые маски напрямую в альвеолы лёгких.</p>
               </div>
               <div class="fact-item glass-card">
-                <span class="fact-tag mono">ФАКТ #02 • ОПАСНЫЕ ОТХОДЫ</span>
-                <p>Всего одна пальчиковая батарейка при коррозии корпуса на полигоне способна загрязнить тяжёлыми металлами до <strong>20 м² почвы</strong> и <strong>400 литров</strong> грунтовых вод.</p>
+                <span class="fact-tag mono">ФАКТ #02 • ОПАСНОСТЬ БАТАРЕЕК</span>
+                <p>Всего одна пальчиковая батарейка при коррозии на мусорном полигоне способна загрязнить тяжёлыми металлами до <strong>20 м² почвы</strong> и <strong>400 литров</strong> грунтовых вод.</p>
               </div>
               <div class="fact-item glass-card">
-                <span class="fact-tag mono">ФАКТ #03 • ЗЕЛЁНЫЙ ЩИТ</span>
-                <p>Взрослый раскидистый карагач или дуб в условиях Бишкека задерживает на кроне до <strong>30–50 кг уличной пыли</strong> за сезон и снижает температуру асфальта под собой на 8–12°C.</p>
+                <span class="fact-tag mono">ФАКТ #03 • ЗЕЛЁНЫЙ ЩИТ БИШКЕКА</span>
+                <p>Взрослый карагач или дуб в Чуйской долине задерживает на кроне до <strong>30–50 кг пыли</strong> за тёплый сезон и снижает температуру асфальта под собой на 8–12°C.</p>
               </div>
             </div>
           </div>
 
-          <!-- Right: Interactive 5-Question Eco Quiz (Slide 10) -->
+          <!-- Right: Interactive 5-Question Eco Quiz -->
           <div class="quiz-panel glass-card">
             <div class="quiz-header">
-              <span class="panel-tag">ИНТЕРАКТИВНЫЙ ЭКО-ТЕСТ</span>
+              <span class="panel-tag">ИНТЕРАКТИВНЫЙ ТЕСТ</span>
               <h3>Проверьте свою экологическую грамотность</h3>
               <div class="quiz-progress-row">
                 <span class="mono" id="quizStepText">Вопрос 1 из 5</span>
@@ -930,88 +1404,88 @@
     </section>
 
     <!-- =====================================================================
-         SECTION 06: ТЕХНИЧЕСКАЯ РЕАЛИЗАЦИЯ И ОЖИДАЕМЫЙ РЕЗУЛЬТАТ (Slides 11 & 12)
+         SECTION 06: ТЕХНИЧЕСКАЯ РЕАЛИЗАЦИЯ И АРХИТЕКТУРА
          ===================================================================== -->
     <section class="section" id="architecture">
       <div class="container">
         <div class="section-header">
           <div class="sec-title-group">
-            <span class="sec-num mono">АРХИТЕКТУРА И ИТОГИ ПРОЕКТА (СЛАЙДЫ 11–12)</span>
-            <h2 class="sec-title">Техническая реализация и ценность платформы «Таза Аба»</h2>
-            <p class="sec-desc">Принцип разработки: сначала надёжная рабочая базовая версия с проверенными данными, затем поэтапное масштабирование сети датчиков и функций.</p>
+            <span class="sec-num mono">АРХИТЕКТУРА СИСТЕМЫ И ИТОГИ ПРОЕКТА</span>
+            <h2 class="sec-title">Техническая реализация платформы «Таза Аба»</h2>
+            <p class="sec-desc">Принцип работы: собственная надёжная станция ESP32 с передачей в облако Supabase + агрегация открытых источников и практические сервисы для каждого бишкекчанина.</p>
           </div>
         </div>
 
         <div class="arch-and-results-grid">
-          <!-- Slide 11: 4-Layer Architecture Stack -->
+          <!-- 4-Layer Architecture Stack -->
           <div class="arch-stack-card glass-card">
-            <span class="panel-tag">АРХИТЕКТУРА СИСТЕМЫ (СЛАЙД 11)</span>
+            <span class="panel-tag">АРХИТЕКТУРНЫЙ СТЕК</span>
             <h3>Четыре уровня работы платформы</h3>
             <div class="arch-layers">
               <div class="arch-layer">
                 <div class="layer-num mono">УРОВЕНЬ 1</div>
                 <div class="layer-content">
-                  <h4>Интерфейс сайта (Frontend UI)</h4>
-                  <p>Пять тематических разделов, интерактивная SVG-карта 4 районов Бишкека, фильтрация карточек утилизации, образовательные статьи и адаптивный дизайн для смартфонов и ПК.</p>
+                  <h4>Интерфейс пользователя (Frontend UI)</h4>
+                  <p>Интерактивная панель телеметрии датчиков, векторная схема 4 районов Бишкека, каталог пунктов приёма вторсырья с навигацией 2GIS, фильтры и мобильная адаптивность.</p>
                 </div>
               </div>
               <div class="arch-arrow">↓</div>
               <div class="arch-layer">
                 <div class="layer-num mono">УРОВЕНЬ 2</div>
                 <div class="layer-content">
-                  <h4>Сервер и База данных (API & Storage)</h4>
-                  <p>Хранение телеметрии воздуха (PM1.0, PM2.5, PM10, климат), реестра проверенных пунктов приёма отходов, каталога зелёных зон, расписания посадок и статей.</p>
+                  <h4>Сервер и База данных (Supabase PostgreSQL REST)</h4>
+                  <p>Облачная таблица <code>sensor_data</code> для сбора показаний температуры, влажности, PM2.5 и PM10, реестр проверенных переработчиков и пользовательские заявки.</p>
                 </div>
               </div>
               <div class="arch-arrow">↓</div>
               <div class="arch-layer">
                 <div class="layer-num mono">УРОВЕНЬ 3</div>
                 <div class="layer-content">
-                  <h4>Источники информации (Data Ingestion)</h4>
-                  <p>Собственные станции на базе ESP32 + SDS011/PMS5003 + DHT22, открытые API качества воздуха и погоды (OpenAQ, Open-Meteo), верифицированные справочники переработчиков.</p>
+                  <h4>Аппаратный уровень и датчики (Hardware IoT)</h4>
+                  <p>Микроконтроллер ESP32 с Wi-Fi, лазерный оптический датчик частиц SDS011/PMS5003 и климатический сенсор DHT11/DHT22 с поправкой на влажность воздуха.</p>
                 </div>
               </div>
               <div class="arch-arrow">↓</div>
               <div class="arch-layer">
                 <div class="layer-num mono">УРОВЕНЬ 4</div>
                 <div class="layer-content">
-                  <h4>Администрирование и модерация (Admin CMS)</h4>
-                  <p>Проверка актуальности адресов и телефонов пунктов приёма, публикация новых образовательных материалов и модерация заявок жителей на озеленение.</p>
+                  <h4>Администрирование и открытость (Admin CMS)</h4>
+                  <p>Верификация адресов приёмных пунктов, публикация экологических материалов и поддержка открытого формата экспорта данных в CSV.</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Slide 12: Expected Results & Comparison with Analogues -->
+          <!-- Expected Results & Comparison -->
           <div class="results-column">
             <div class="expected-results-card glass-card">
-              <span class="panel-tag">ОЖИДАЕМЫЙ РЕЗУЛЬТАТ (СЛАЙД 12)</span>
+              <span class="panel-tag">ПРАКТИЧЕСКАЯ ПОЛЬЗА</span>
               <h3>Что даёт «Таза Аба» жителям Бишкека</h3>
               <div class="outcomes-grid">
                 <div class="outcome-item">
                   <div class="oc-icon"><i data-lucide="eye"></i></div>
                   <h4>Осведомлённость</h4>
-                  <p>Наглядное понимание качества воздуха по районам (PM2.5 / AQI) и реальных экологических рисков.</p>
+                  <p>Точное понимание текущего уровня смога (PM2.5) и рекомендаций по безопасному проветриванию.</p>
                 </div>
                 <div class="outcome-item">
                   <div class="oc-icon"><i data-lucide="compass"></i></div>
                   <h4>Удобство</h4>
-                  <p>Все проверенные адреса приёма вторсырья и опасных отходов с графиком работы и правилами хранения в одном месте.</p>
+                  <p>Все проверенные адреса пунктов раздельного сбора и опасных отходов с быстрой навигацией в 2GIS.</p>
                 </div>
                 <div class="outcome-item">
                   <div class="oc-icon"><i data-lucide="users"></i></div>
                   <h4>Участие</h4>
-                  <p>Актуальная информация о городских посадках деревьев и возможность предлагать территории для озеленения.</p>
+                  <p>Календарь посадок деревьев и возможность предложить свой двор для озеленения.</p>
                 </div>
                 <div class="outcome-item">
                   <div class="oc-icon"><i data-lucide="award"></i></div>
-                  <h4>Образование</h4>
-                  <p>Доступные статьи, факты и интерактивные тесты для формирования устойчивых экологических привычек.</p>
+                  <h4>Эко-привычки</h4>
+                  <p>Понятные инструкции, факты и интерактивный тест для формирования устойчивого эко-образа жизни.</p>
                 </div>
               </div>
             </div>
 
-            <!-- Comparison Table from Project Specification -->
+            <!-- Comparison Table -->
             <div class="comparison-card glass-card">
               <span class="panel-tag">СРАВНЕНИЕ С АНАЛОГАМИ</span>
               <h3>Преимущество комплексного подхода «Таза Аба»</h3>
@@ -1029,26 +1503,26 @@
                     <tr>
                       <td>Мониторинг воздуха Бишкека</td>
                       <td>Да (общий)</td>
-                      <td>Да (сеть датчиков)</td>
-                      <td class="highlight-col"><strong>Станция ESP32 + открытые данные по 4 районам</strong></td>
+                      <td>Да (сеть станций)</td>
+                      <td class="highlight-col"><strong>Собственная станция ESP32 + 4 района</strong></td>
                     </tr>
                     <tr>
-                      <td>Пункты утилизации и опасные отходы</td>
+                      <td>Пункты переработки и опасные отходы</td>
                       <td>Нет</td>
                       <td>Нет</td>
-                      <td class="highlight-col"><strong>Да (каталог + правила хранения)</strong></td>
+                      <td class="highlight-col"><strong>Да (каталог + правила + 2GIS)</strong></td>
                     </tr>
                     <tr>
-                      <td>Озеленение и заявки жителей</td>
+                      <td>Озеленение и инициативы горожан</td>
                       <td>Нет</td>
                       <td>Нет</td>
-                      <td class="highlight-col"><strong>Да (парки, посадки, форма заявок)</strong></td>
+                      <td class="highlight-col"><strong>Да (парки, посадки, заявки с расчётом CO2)</strong></td>
                     </tr>
                     <tr>
-                      <td>Эко-библиотека и тесты</td>
+                      <td>Эко-библиотека и интерактивный тест</td>
                       <td>Кратко</td>
                       <td>Нет</td>
-                      <td class="highlight-col"><strong>Да (статьи, факты, интерактивный тест)</strong></td>
+                      <td class="highlight-col"><strong>Да (статьи, советы, тест)</strong></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1064,8 +1538,8 @@
   <footer class="footer">
     <div class="container footer-inner">
       <div class="footer-brand">
-        <div class="brand-title">ТАЗА АБА | ЧИСТЫЙ ГОРОД НАЧИНАЕТСЯ С ИНФОРМАЦИИ И УЧАСТИЯ</div>
-        <p>Концепция и веб-платформа проекта • Автор: <strong>Бегимай (группа ИВТ-1-23)</strong> • КГТУ им. И. Раззакова, г. Бишкек</p>
+        <div class="brand-title">ТАЗА АБА | ЭКОЛОГИЧЕСКАЯ ПЛАТФОРМА БИШКЕКА</div>
+        <p>Веб-платформа и IoT-мониторинг • Автор: <strong>Бегимай (группа ИВТ-1-23)</strong> • КГТУ им. И. Раззакова, г. Бишкек</p>
       </div>
       <div class="footer-actions">
         <button class="btn btn-outline btn-sm" id="exportDataBtn">
@@ -1078,12 +1552,12 @@
     </div>
   </footer>
 
-  <!-- ADMIN / CMS MODAL (Slide 11 Layer 4: Администрирование) -->
+  <!-- ADMIN / CMS MODAL -->
   <div class="modal-backdrop" id="adminModal" hidden>
     <div class="modal-window glass-card">
       <div class="modal-header">
         <div>
-          <span class="panel-tag">ПАНЕЛЬ АДМИНИСТРИРОВАНИЯ (СЛАЙД 11)</span>
+          <span class="panel-tag">ПАНЕЛЬ АДМИНИСТРИРОВАНИЯ</span>
           <h3>Добавление проверенного пункта приёма отходов</h3>
         </div>
         <button class="btn-icon" id="closeAdminBtn" aria-label="Закрыть окно">
@@ -1145,6 +1619,17 @@
     </div>
   </div>
 
+  <!-- Toast Notification Floating Element -->
+  <div class="toast-notification" id="ecoToast" hidden aria-live="polite">
+    <i data-lucide="check-circle" class="toast-icon"></i>
+    <span id="toastMessage">Сообщение скопировано</span>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
+
+    <!-- Additional Background Slides -->
+    <div class="photo-slide photo-rain" id="bgSlideRain"></div>
+    <div class="photo-slide photo-snow" id="bgSlideSnow"></div>
+    <div class="photo-slide photo-heat" id="bgSlideHeat"></div>
