@@ -11,135 +11,412 @@ document.addEventListener('DOMContentLoaded', () => {
   // =========================================================================
   // ДИНАМИЧЕСКИЙ ФОТО-ФОН ОКРУЖЕНИЯ (БИШКЕК: ДЕНЬ, ЗАКАТ, НОЧЬ, СМОГ)
   // =========================================================================
-  let currentBgMode = "auto"; // "auto" | "day" | "sunset" | "night" | "smog"
 
-  function getBishkekHour() {
-    try {
-      const bishkekTimeStr = new Intl.DateTimeFormat("en-US", {
-        timeZone: "Asia/Bishkek",
-        hour: "numeric",
-        hour12: false
-      }).format(new Date());
-      return parseInt(bishkekTimeStr, 10);
-    } catch (e) {
-      const d = new Date();
-      return (d.getUTCHours() + 6) % 24;
-    }
-  }
+  // ============================================================
+  // ТАЗА АБА — АВТОМАТИЧЕСКАЯ СМЕНА ФОНА
+  // Реальная погода + время суток + сезон
+  // Бишкек, Кыргызстан
+  // ============================================================
 
-  function updateAtmosphereBackground() {
-  const slideDay = document.getElementById("bgSlideDay");
-  const slideSunset = document.getElementById("bgSlideSunset");
-  const slideNight = document.getElementById("bgSlideNight");
-  const slideSmog = document.getElementById("bgSlideSmog");
-  const slideRain = document.getElementById("bgSlideRain");
-  const slideSnow = document.getElementById("bgSlideSnow");
-  const slideHeat = document.getElementById("bgSlideHeat");
+  const BG_TIMEZONE = 'Asia/Bishkek';
 
-  // Map background types to icons and labels
-  const meta = {
-    day: { icon: "☀️", label: "День" },
-    sunset: { icon: "🌅", label: "Закат" },
-    night: { icon: "🌙", label: "Ночь" },
-    smog: { icon: "🌫️", label: "Смог" },
-    rain: { icon: "🌧️", label: "Дождь" },
-    snow: { icon: "❄️", label: "Снег" },
-    heat: { icon: "🔥", label: "Жара" }
+  const BG_WEATHER_URL =
+    'https://api.open-meteo.com/v1/forecast' +
+    '?latitude=42.8746&longitude=74.5698' +
+    '&current=temperature_2m,weather_code,is_day,precipitation,rain,snowfall' +
+    '&daily=sunrise,sunset' +
+    '&forecast_days=1&timezone=Asia%2FBishkek';
+
+  const BG_WEATHER_REFRESH_MS = 15 * 60 * 1000;
+
+  const BG_META = {
+    day:    { icon: '☀️', label: 'День' },
+    sunset: { icon: '🌅', label: 'Закат' },
+    night:  { icon: '🌙', label: 'Ночь' },
+    smog:   { icon: '🌫️', label: 'Туман / дымка' },
+    rain:   { icon: '🌧️', label: 'Дождь' },
+    snow:   { icon: '❄️', label: 'Снег' },
+    heat:   { icon: '🔥', label: 'Жара' }
   };
 
-  let activeType = "day";
+  let currentBgMode = 'auto';
 
-  if (currentBgMode === "auto") {
-    if (typeof currentSeason !== "undefined" && currentSeason === "winter") {
-      activeType = "smog";
-    } else {
-      const h = getBishkekHour();
-      if (h >= 6 && h < 18) {
-        activeType = "day";
-      } else if (h >= 18 && h < 21) {
-        activeType = "sunset";
-      } else {
-        activeType = "night";
+  try {
+    const savedMode = localStorage.getItem('taza_bg_mode');
+
+    if (savedMode === 'auto' ||
+        Object.prototype.hasOwnProperty.call(BG_META, savedMode)) {
+      currentBgMode = savedMode;
+    }
+  } catch (e) {
+    console.warn('Не удалось прочитать настройки фона');
+  }
+
+  let bgWeather = null;
+  let bgWeatherLastFetch = 0;
+  let bgWeatherRequestActive = false;
+
+  // Получение времени Бишкека
+  function getBishkekDateParts() {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: BG_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+      }).formatToParts(new Date());
+
+      const values = Object.fromEntries(
+        parts.map(({ type, value }) => [type, value])
+      );
+
+      return {
+        month: Number(values.month),
+        hour: Number(values.hour),
+        minute: Number(values.minute)
+      };
+
+    } catch (e) {
+      const bishkek = new Date(Date.now() + 6 * 3600000);
+
+      return {
+        month: bishkek.getUTCMonth() + 1,
+        hour: bishkek.getUTCHours(),
+        minute: bishkek.getUTCMinutes()
+      };
+    }
+  }
+
+  // Преобразование времени восхода и заката в минуты
+  function weatherTimeToMinutes(isoLocalString) {
+    if (typeof isoLocalString !== 'string') return null;
+
+    const match = isoLocalString.match(/T(\d{2}):(\d{2})/);
+
+    return match
+      ? Number(match[1]) * 60 + Number(match[2])
+      : null;
+  }
+
+  // Определение фона автоматически
+  function getAutoBgType() {
+    const { month, hour, minute } = getBishkekDateParts();
+
+    const nowMinutes = hour * 60 + minute;
+
+    const isWinter = month === 12 || month <= 2;
+    const isSummer = month >= 6 && month <= 8;
+
+    const w = bgWeather?.current;
+
+    // При наличии данных реальной погоды
+    if (w) {
+      const code = Number(w.weather_code);
+      const temp = Number(w.temperature_2m);
+
+      // WMO-коды снегопада
+      const snowing =
+        (code >= 71 && code <= 77) ||
+        code === 85 ||
+        code === 86 ||
+        Number(w.snowfall) > 0;
+
+      // WMO-коды дождя и грозы
+      const raining =
+        (code >= 51 && code <= 67) ||
+        (code >= 80 && code <= 82) ||
+        (code >= 95 && code <= 99) ||
+        Number(w.rain) > 0;
+
+      // Снег имеет приоритет
+      if (snowing) return 'snow';
+
+      // Дождь
+      if (raining) return 'rain';
+
+      // Туман (фото смога используется как атмосферный фон)
+      if (code === 45 || code === 48) {
+        return 'smog';
       }
+
+      // Летняя жара
+      if (
+        isSummer &&
+        Number.isFinite(temp) &&
+        temp >= 32 &&
+        Number(w.is_day) === 1
+      ) {
+        return 'heat';
+      }
+
+      // Реальное время заката
+      const sunset = weatherTimeToMinutes(
+        bgWeather?.daily?.sunset?.[0]
+      );
+
+      const sunrise = weatherTimeToMinutes(
+        bgWeather?.daily?.sunrise?.[0]
+      );
+
+      if (
+        sunset !== null &&
+        nowMinutes >= sunset - 45 &&
+        nowMinutes <= sunset + 40
+      ) {
+        return 'sunset';
+      }
+
+      // Восход солнца
+      if (
+        sunrise !== null &&
+        nowMinutes >= sunrise - 20 &&
+        nowMinutes < sunrise + 20
+      ) {
+        return 'day';
+      }
+
+      // День или ночь из погодного API
+      return Number(w.is_day) === 1 ? 'day' : 'night';
     }
-  } else {
-    activeType = currentBgMode;
+
+    // Резервный режим, если погодный API недоступен
+
+    if (isWinter) {
+      if (hour >= 17 && hour < 19) return 'sunset';
+      return hour >= 8 && hour < 17 ? 'day' : 'night';
+    }
+
+    if (isSummer) {
+      if (hour >= 19 && hour < 21) return 'sunset';
+      return hour >= 6 && hour < 19 ? 'day' : 'night';
+    }
+
+    if (hour >= 18 && hour < 20) return 'sunset';
+
+    return hour >= 7 && hour < 18 ? 'day' : 'night';
   }
 
-  // Toggle slides
-  slideDay?.classList.toggle("active", activeType === "day");
-  slideSunset?.classList.toggle("active", activeType === "sunset");
-  slideNight?.classList.toggle("active", activeType === "night");
-  slideSmog?.classList.toggle("active", activeType === "smog");
-  slideRain?.classList.toggle("active", activeType === "rain");
-  slideSnow?.classList.toggle("active", activeType === "snow");
-  slideHeat?.classList.toggle("active", activeType === "heat");
+  // Применение фоновой фотографии
+  function updateAtmosphereBackground() {
+    const activeType =
+      currentBgMode === 'auto'
+        ? getAutoBgType()
+        : currentBgMode;
 
-  const iconEl = document.getElementById("bgModeIcon");
-  const labelEl = document.getElementById("bgModeLabel");
-  if (currentBgMode === "auto") {
-    if (iconEl) iconEl.textContent = meta[activeType]?.icon || "⚡";
-    if (labelEl) labelEl.textContent = `Авто (${meta[activeType]?.label || "День"})`;
-  } else {
-    if (iconEl) iconEl.textContent = meta[activeType]?.icon || "☀️";
-    if (labelEl) labelEl.textContent = meta[activeType]?.label || "День";
+    const ids = {
+      day: 'bgSlideDay',
+      sunset: 'bgSlideSunset',
+      night: 'bgSlideNight',
+      smog: 'bgSlideSmog',
+      rain: 'bgSlideRain',
+      snow: 'bgSlideSnow',
+      heat: 'bgSlideHeat'
+    };
+
+    for (const [type, id] of Object.entries(ids)) {
+      document.getElementById(id)?.classList.toggle(
+        'active',
+        type === activeType
+      );
+    }
+
+    const modeMeta = BG_META[activeType] || BG_META.day;
+
+    const iconEl = document.getElementById('bgModeIcon');
+    const labelEl = document.getElementById('bgModeLabel');
+
+    if (iconEl) {
+      iconEl.textContent = modeMeta.icon;
+    }
+
+    if (labelEl) {
+      labelEl.textContent =
+        currentBgMode === 'auto'
+          ? `Авто (${modeMeta.label})`
+          : modeMeta.label;
+    }
+
+    document.querySelectorAll('.bg-option').forEach(opt => {
+      opt.classList.toggle(
+        'active',
+        opt.dataset.bg === currentBgMode
+      );
+    });
+
+    document.querySelectorAll(
+      '.mobile-bg-switcher .mbs-btn'
+    ).forEach(btn => {
+      btn.classList.toggle(
+        'active',
+        btn.dataset.bg === currentBgMode
+      );
+    });
+
+    const btn = document.getElementById('bgModeBtn');
+
+    if (btn) {
+      const source = bgWeather
+        ? 'Open-Meteo (Бишкек)'
+        : 'резервный режим по времени';
+
+      btn.title = currentBgMode === 'auto'
+        ? `Автофон: ${modeMeta.label}. Источник: ${source}.`
+        : `Ручной фон: ${modeMeta.label}.`;
+    }
   }
 
-  document.querySelectorAll(".bg-option").forEach((opt) => {
-    opt.classList.toggle("active", opt.dataset.bg === currentBgMode);
-  });
-  document.querySelectorAll(".mobile-bg-switcher .mbs-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.bg === currentBgMode);
-  });
-}
+  // Получение реальной погоды
+  async function refreshBishkekWeather(force = false) {
+    if (bgWeatherRequestActive) return;
 
+    if (
+      !force &&
+      Date.now() - bgWeatherLastFetch < BG_WEATHER_REFRESH_MS
+    ) {
+      return;
+    }
+
+    bgWeatherRequestActive = true;
+    bgWeatherLastFetch = Date.now();
+
+    const controller = new AbortController();
+
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 10000);
+
+    try {
+      const response = await fetch(BG_WEATHER_URL, {
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (
+        !data?.current ||
+        !Number.isFinite(Number(data.current.weather_code))
+      ) {
+        throw new Error('Некорректный ответ погодного API');
+      }
+
+      bgWeather = data;
+
+      console.info(
+        'ТАЗА АБА: получена погода Бишкека',
+        data.current
+      );
+
+    } catch (error) {
+      console.warn(
+        'ТАЗА АБА: погодный API недоступен:',
+        error.message
+      );
+
+    } finally {
+      clearTimeout(timeout);
+      bgWeatherRequestActive = false;
+      updateAtmosphereBackground();
+    }
+  }
+
+  // Ручной и автоматический выбор
   function setBgMode(mode) {
+    if (
+      mode !== 'auto' &&
+      !Object.prototype.hasOwnProperty.call(BG_META, mode)
+    ) {
+      return;
+    }
+
     currentBgMode = mode;
+
+    try {
+      localStorage.setItem('taza_bg_mode', mode);
+    } catch (e) {
+      // Ничего страшного, если хранилище недоступно
+    }
+
     updateAtmosphereBackground();
+
+    if (mode === 'auto') {
+      refreshBishkekWeather();
+    }
   }
 
-  const bgModeBtn = document.getElementById("bgModeBtn");
-  const bgModeMenu = document.getElementById("bgModeMenu");
-  const bgModeDropdown = document.getElementById("bgModeDropdown");
+  // Управление меню фонов
+  const bgModeBtn = document.getElementById('bgModeBtn');
+  const bgModeMenu = document.getElementById('bgModeMenu');
+  const bgModeDropdown = document.getElementById('bgModeDropdown');
 
-  bgModeBtn?.addEventListener("click", (e) => {
+  bgModeBtn?.addEventListener('click', e => {
     e.stopPropagation();
-    bgModeDropdown?.classList.toggle("open");
-    bgModeMenu?.classList.toggle("show");
+
+    bgModeDropdown?.classList.toggle('open');
+    bgModeMenu?.classList.toggle('show');
   });
 
-  document.addEventListener("click", (e) => {
+  document.addEventListener('click', e => {
     if (!bgModeDropdown?.contains(e.target)) {
-      bgModeDropdown?.classList.remove("open");
-      bgModeMenu?.classList.remove("show");
+      bgModeDropdown?.classList.remove('open');
+      bgModeMenu?.classList.remove('show');
     }
   });
 
-  document.querySelectorAll(".bg-option").forEach((opt) => {
-    opt.addEventListener("click", () => {
-      const bg = opt.dataset.bg;
-      setBgMode(bg);
-      bgModeDropdown?.classList.remove("open");
-      bgModeMenu?.classList.remove("show");
-      const name = opt.querySelector("strong")?.textContent || bg;
-      if (typeof window.showToast === "function") {
+  // Кнопки на компьютере
+  document.querySelectorAll('.bg-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const mode = opt.dataset.bg;
+
+      setBgMode(mode);
+
+      bgModeDropdown?.classList.remove('open');
+      bgModeMenu?.classList.remove('show');
+
+      const name =
+        opt.querySelector('strong')?.textContent || mode;
+
+      if (typeof window.showToast === 'function') {
         window.showToast(`✓ Атмосферный фон: ${name}`);
       }
     });
   });
 
-  document.querySelectorAll(".mobile-bg-switcher .mbs-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const bg = btn.dataset.bg;
-      setBgMode(bg);
-      if (typeof window.showToast === "function") {
-        window.showToast(`✓ Фон изменён: ${btn.textContent.trim()}`);
+  // Кнопки на телефоне
+  document.querySelectorAll(
+    '.mobile-bg-switcher .mbs-btn'
+  ).forEach(btn => {
+    btn.addEventListener('click', () => {
+      setBgMode(btn.dataset.bg);
+
+      if (typeof window.showToast === 'function') {
+        window.showToast(
+          `✓ Фон изменён: ${btn.textContent.trim()}`
+        );
       }
     });
   });
 
+  // Запуск автоматического режима
   updateAtmosphereBackground();
-  setInterval(updateAtmosphereBackground, 5 * 60 * 1000);
+
+  // Получаем данные погоды
+  refreshBishkekWeather();
+
+  // Проверяем время каждую минуту
+  setInterval(updateAtmosphereBackground, 60 * 1000);
+
+  // Обновляем реальную погоду каждые 15 минут
+  setInterval(refreshBishkekWeather, BG_WEATHER_REFRESH_MS);
+
+
 
   // -----------------------------------------------------------------------
   // 1. ДАННЫЕ ПО 4 РАЙОНАМ БИШКЕКА (Слайд 05 и 06)
