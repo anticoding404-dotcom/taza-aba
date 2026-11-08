@@ -112,35 +112,32 @@ h1, h2, h3, .brand-title, .aqi-big-num, .dd-aqi-val {
 }
 
 .photo-slide.photo-day {
-  background-image: url('images/bg_day.jpg');
+  background-image: url('bg_day.jpg');
 }
 
 .photo-slide.photo-sunset {
-  background-image: url('images/bg_sunset.jpg');
+  background-image: url('bg_sunset.jpg');
 }
 
 .photo-slide.photo-night {
-  background-image: url('images/bg_night.jpg');
+  background-image: url('bg_night.jpg');
 }
 
 .photo-slide.photo-smog {
-  background-image: url('images/bg_smog.jpg');
+  background-image: url('bg_smog.jpg');
 }
 
 /* New weather background slides */
 .photo-slide.photo-rain {
-  background-image: url('images/bg_rain.jpg');
+  background-image: url('bg_rain.jpg');
 }
 
 .photo-slide.photo-snow {
-  background-image: url('images/bg_snow.jpg');
+  background-image: url('bg_snow.jpg');
 }
 
 .photo-slide.photo-heat {
-  background-image: url('images/bg_heat.jpg');
-}
-
-  background-image: url('images/bg_smog.jpg');
+  background-image: url('bg_heat.jpg');
 }
 
 /* Translucent Dark Glass Vignette Overlay */
