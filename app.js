@@ -39,19 +39,14 @@ document.addEventListener('DOMContentLoaded', () => {
     heat:   { icon: '🔥', label: 'Жара' }
   };
 
-  let currentBgMode = 'auto';
+// Всегда запускаем автоматический фон
+let currentBgMode = 'auto';
 
-  try {
-    const savedMode = localStorage.getItem('taza_bg_mode');
-
-    if (savedMode === 'auto' ||
-        Object.prototype.hasOwnProperty.call(BG_META, savedMode)) {
-      currentBgMode = savedMode;
-    }
-  } catch (e) {
-    console.warn('Не удалось прочитать настройки фона');
-  }
-
+try {
+  localStorage.removeItem('taza_bg_mode');
+} catch (e) {
+  console.warn('Настройки фона недоступны');
+}
   let bgWeather = null;
   let bgWeatherLastFetch = 0;
   let bgWeatherRequestActive = false;
@@ -338,12 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     currentBgMode = mode;
 
-    try {
-      localStorage.setItem('taza_bg_mode', mode);
-    } catch (e) {
-      // Ничего страшного, если хранилище недоступно
-    }
-
+   
     updateAtmosphereBackground();
 
     if (mode === 'auto') {
